@@ -40,7 +40,9 @@ class Role{
     int player_obj;
     bool using_skill;
     int state_check;            // Day chatting, voting, night, night ending
-
+    int voting;
+    bool *alive_list;
+    int player_amount;
     int group;
     int ability_count;
     int connfd;
@@ -51,7 +53,7 @@ class Role{
     pthread_t thread_id;
 
     Role(){}
-    Role(int, int, int);
+    Role(int, int, int, int);
     ~Role(){}
     void day_func();
     void night_func();
@@ -60,6 +62,7 @@ class Role{
     int vote_period();
     void save_ptr(Role*);
     bool check_obj(string);
+    int check_voting(string);
 
 };
 void Role::save_ptr(Role *p){
@@ -75,6 +78,7 @@ void Role::save_ptr(Role *p){
                 day_func();
                 break;
             case 1:
+                vote_period();
             case 2:
                 night_func();
                 break;
@@ -82,14 +86,19 @@ void Role::save_ptr(Role *p){
         }
     }
 }
-Role::Role(int con, int role, int player){
-    state_check = 2;
-    connfd = con;
-    Role_id = role;
+Role::Role(int con, int role, int player, int player_amount){
+    this->state_check = 1;
+    this->connfd = con;
+    this->Role_id = role;
     this->player = player;
-    alive = true;
-    chating_ability = true;
-    using_skill = false;
+    this->player_amount = player_amount;
+    this->alive = true;
+    this->chating_ability = true;
+    this->using_skill = false;
+    this->alive_list = new bool(player_amount);
+    for (int i = 0 ; i < player_amount ; i++){
+        alive_list[i] = true;
+    }
 
     cout << "You are player " << player << endl;
     cout << "Your role is " << role_name[role] << endl;
@@ -125,7 +134,19 @@ Role::Role(int con, int role, int player){
 }
 int Role::vote_period(){
     string kb_input = "";
-    kb_input = input();
+    while(state_check == 1){  
+        cout << "Please make a decision\n";
+        cout << "Command : --vote [player num]\n";
+        cout << "not to vote if [player num] = -1\n";
+        kb_input = input();
+        voting = check_voting(kb_input);
+        if(voting != -1){
+            cout << "You decide to vote player " << voting << endl;
+        }
+        else{
+            cout << "You don't want to vote anyone.\n";
+        }
+    }
 }
 void Role::day_func(){
     string sent;
@@ -139,7 +160,6 @@ void Role::day_func(){
 }
 void Role::night_func(){
     cout << "Now, night is coming\n";
-
     string kb_input = "";
     player_obj = -1;
     using_skill = false;
@@ -202,9 +222,45 @@ bool Role::check_obj(string str){
     if (c_ptr != NULL){
         char *c = (c_ptr + 6);
         player_obj = atoi(c);
-        return true;
+        if(player_obj < player_amount && player_obj >= 0){
+            if(alive_list[player_obj] && player_obj != player){
+                return true;
+            }
+            else{
+                cout << "Error: Can't choose yourself or dead\n";
+            }
+        }
+        else{
+            cout << "Error: Invaild player number\n";
+        }
     }
+    player_obj = -1;
     return false;
+}
+int Role::check_voting(string str){
+    char *c_ptr;
+    char *cstr = new char[str.length() + 1];
+    strcpy(cstr, str.c_str());
+    int num;
+    c_ptr = strstr (cstr,"--vote "); 
+    if (c_ptr != NULL){
+        num = atoi(c);
+        if(num == -1){
+            return -1;
+        }
+        if(num < player_amount && num >= 0){
+            if(alive_list[num] && num != player){
+                return num;
+            }
+            else{
+                cout << "Error: Can't choose yourself or dead\n";
+            }
+        }
+        else{
+            cout << "Error: Invaild player number\n";
+        }
+    }
+    return -1;
 }
 string Role::input(){
     string kb_input = "";
@@ -225,7 +281,7 @@ void Role::output(string out){
         errexit("Error: write()\n"); 
 }
 
-
+// thread for reading from server
 void *connection_handler(void *conn){
     Role *ptr = (Role*)conn;
     int n;
