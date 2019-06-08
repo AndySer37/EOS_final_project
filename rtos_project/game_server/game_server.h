@@ -28,6 +28,8 @@ const string DEATH_DES[] = {"was shot to death last night.\n", \
     "was involved in a massacre which is made by a crazy soldier.\n"};
 const string role_name[] = {" ", "police", "detective", "bodyguard", "doctor", "spy", "Retired soldier"\
                     , "Godfather", "Intimidate", "streetwalker", "survivor", "Serial killer"};
+const int Town_list[] = {0,1,2,3,4,5};
+const int Mafia_list[] = {6,7,8};
 struct death_info{
     int player;
     string death_des;
@@ -53,15 +55,109 @@ class game_server{
     int vote_death;  // if -1: nobody death when voting
     int* vote_arr;      // store the vote // index: player 
     int intimidate_obj;
-    string event_des;   // for voting and night ending
+    string event_des;   // for voting, night ending and game ending
     string* respond;    // for each player's respond for night ending
     vector < death_info > death_list;
 
     bool night_update(string *);        
     bool vote_update(string *);         // --vote [num] , not voting if [num] == -1 
-    bool alive_check();
+    bool godfather_alive_check();
+    string command;                     // ????
     bool game_over_check();
 };
+
+bool game_server::godfather_alive_check(){
+    /// if godfather is dead
+    if(role_table[6][2] == 0){
+        if(role_table[7][2] == 1){          /// godfather and Intimidate switch
+            for(int i = 0; i < 3; i++){
+                int buf = role_table[6][i];
+                role_table[6][i] = role_table[7][i];
+                role_table[7][i] = buf;
+            }
+            return true;
+        }
+        if(role_table[8][2] == 1){          /// godfather and streetwalker switch 
+            for(int i = 0; i < 3; i++){
+                int buf = role_table[6][i];
+                role_table[6][i] = role_table[8][i];
+                role_table[8][i] = buf;
+            }
+            return true;
+        }
+    }
+    return false;
+}
+bool game_server::game_over_check(){
+    /// check the game status
+    int i = 0;
+    int town_len = sizeof(Town_list)/sizeof(int);
+    int mafia_len = sizeof(Mafia_list)/sizeof(int);
+    int town_alive = 0, mafia_alive = 0;
+    for(i = 0; i < town_len; i++){
+        town_alive += role_table[Town_list[i]][2];
+    }
+    for(i = 0; i < mafia_len; i++){
+        mafia_alive += role_table[Mafia_list[i]][2];
+    } 
+    // alive = 1
+    if (alive == 1){
+        if(town_alive)
+            event_des = "Town Winning.\n";
+        else if(mafia_alive)
+            event_des = "Mafia Winning.\n";
+        else if(role_table[10][2])
+            event_des = "Serial Killer Winning.\n";
+        else if(role_table[9][2])
+            event_des = "Survivor Winning.\n";
+        return true;
+    }
+    // alive = 2
+    if (alive == 2){
+        if(town_alive){
+            if(mafia_alive)
+                event_des = "Mafia Winning.\n";
+            else if(role_table[10][2])
+                event_des = "Serial Killer Winning.\n";
+            else if(role_table[9][2])
+                event_des = "Town and Survivor Winning.\n";
+            else
+                event_des = "Town Winning.\n";
+        }
+        else if(mafia_alive){
+            if(role_table[10][2])
+                event_des = "Serial Killer Winning.\n";
+            else if(role_table[9][2])
+                event_des = "Mafia and Survivor Winning.\n";
+            else
+                event_des = "Mafia Winning.\n";
+        }
+        else{
+            event_des = "Serial Killer and Survivor Winning.\n";
+        }
+        return true;
+    }
+    // alive > 2
+    if (town_alive == 0){
+        if(role_table[10][2] == 0){
+            if(role_table[9][2])
+                event_des = "Mafia and Survivor Winning.\n";
+            else
+                event_des = "Mafia Winning.\n";
+            return true;
+        }
+    }
+    if (mafia_alive == 0){
+        if(role_table[10][2] == 0){
+            if(role_table[9][2])
+                event_des = "Town and Survivor Winning.\n";
+            else
+                event_des = "Town Winning.\n";
+            return true;
+        }        
+    } 
+    return false;
+}
 
 // 1 police, 2 detective, 3 bodyguard, 4 doctor, 5 spy, 6 soldier
 // 7 Godfather, 8 Intimidate, 9 streetwalker
@@ -74,28 +170,6 @@ game_server::game_server(int alive, int** tb){
     this->respond = new string[ROLE_AMO];
     this->vote_arr = new int[ROLE_AMO];
     this->event_des = "";
-
-    string str_arr[alive] = {"--p 0 --vote 2", "--p 1 --vote -1", "--p 2 --vote 1"\
-        , "--p 6 --vote 7", "--p 9 --vote 1", "--p 10 --vote -1", "--p 3 --vote 6"
-        , "--p 4 --vote 7", "--p 7 --vote 4", "--p 8 --vote 7", "--p 5 --vote 9"};
-
-    vote_update(str_arr);
-    cout << "------------------------------\n";
-    this->alive ++;
-
-    string str_arr1[alive] = {"--role 0 --obj 10", "--role 1 --obj 7", "--role 2 --obj 1"\
-        , "--role 6 --obj 5", "--role 9 --obj -1", "--role 10 --obj 9", "--role 3 --obj 5"\
-        , "--role 4 --obj 5", "--role 7 --obj 5", "--role 8 --obj 10", "--role 5 --obj -2"};
-
-    night_update(str_arr1);   
-
-    //// check ////
-    for (int i = 0; i < ROLE_AMO ; i++){
-        cout << i << ": " << respond[i];
-    }
-    if (intimidate_obj >= 0){
-        cout << "Player " << intimidate_obj << " will be prohibited to chat\n";
-    } 
 }
 
 // Update functions
@@ -276,30 +350,6 @@ bool game_server::night_update(string *str_arr){
     }
     bool doctor_save = false;
     bool survivor_save = false;
-    //// Godfather ////
-    if (role_table[6][1] != DEFAULT && role_table[6][1] != NOT_USE && respond[role_table[6][0]] == ""){
-        obj = role_table[6][1];
-        for(i = 0; i < ROLE_AMO; i++){
-            if (role_table[i][0] == obj){
-                break;
-            } 
-        }
-        if(i == 9 && role_table[9][1] == USED && respond[role_table[9][0]] == ""){
-            survivor_save = true;
-        }
-        else if (role_table[3][1] == role_table[i][0] && respond[role_table[3][0]] == ""){   // save by doctor
-            doctor_save = true;
-        }
-        else{
-            respond[role_table[i][0]] = "You were shoot dead during midnight!\n";
-            struct death_info a;
-            a.player = role_table[i][0];
-            a.death_des = DEATH_DES[0];
-            role_table[i][2] = 0;
-            death_list.push_back(a);    
-        }
-        respond[role_table[6][0]] = "You successfully executed the shooting !\n";
-    }
     //// Serial killer ////
     if (role_table[10][1] != DEFAULT && role_table[10][1] != NOT_USE && respond[role_table[10][0]] == ""){     // Maybe killed by bodyguard
         obj = role_table[10][1];
@@ -324,6 +374,30 @@ bool game_server::night_update(string *str_arr){
             death_list.push_back(a);    
         }
         respond[role_table[10][0]] = "You successfully executed the shooting !\n";
+    }
+    //// Godfather ////
+    if (role_table[6][1] != DEFAULT && role_table[6][1] != NOT_USE && respond[role_table[6][0]] == ""){
+        obj = role_table[6][1];
+        for(i = 0; i < ROLE_AMO; i++){
+            if (role_table[i][0] == obj){
+                break;
+            } 
+        }
+        if(i == 9 && role_table[9][1] == USED && respond[role_table[9][0]] == ""){
+            survivor_save = true;
+        }
+        else if (role_table[3][1] == role_table[i][0] && respond[role_table[3][0]] == ""){   // save by doctor
+            doctor_save = true;
+        }
+        else{
+            respond[role_table[i][0]] = "You were shoot dead during midnight!\n";
+            struct death_info a;
+            a.player = role_table[i][0];
+            a.death_des = DEATH_DES[0];
+            role_table[i][2] = 0;
+            death_list.push_back(a);    
+        }
+        respond[role_table[6][0]] = "You successfully executed the shooting !\n";
     }
     //// Intimidate ////
     intimidate_obj = role_table[7][1];
@@ -361,9 +435,9 @@ bool game_server::night_update(string *str_arr){
     else{
         for(iter; iter != death_list.end(); ++iter){
             ss << "Player " << iter->player << " " << iter->death_des;
+            alive --;
         } 
     }
-    cout << ss.str();
     event_des = ss.str();
     return true;
 }
@@ -421,7 +495,6 @@ bool game_server::vote_update(string *str_arr){
         alive --;
     }
     vote_death = max;
-    cout << ss.str();
     event_des = ss.str();
     return true;
 }
