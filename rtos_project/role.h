@@ -19,8 +19,8 @@ using namespace std;
 #define SERSIZE 30
 #define Server_output false
 
-const string role_name[] = {" ", "police", "detective", "bodyguard", "doctor", "spy", "soldier"\
-                    , "father", "Intimidate", "streetwalker", "survivor", "killer"};
+const string role_name[] = {" ", "police", "detective", "bodyguard", "doctor", "spy", "Retired soldier"\
+                    , "Godfather", "Intimidate", "streetwalker", "survivor", "Serial killer"};
 const string group_name[] = {"Town", "Mafia", "Neutral/Kindness", "Neutral/Evil"};
 const string winning_cond[] = {
     "Put all the criminal to Death!", 
@@ -244,6 +244,7 @@ int Role::check_voting(string str){
     int num;
     c_ptr = strstr (cstr,"--vote "); 
     if (c_ptr != NULL){
+        char *c = (c_ptr + 7);
         num = atoi(c);
         if(num == -1){
             return -1;
