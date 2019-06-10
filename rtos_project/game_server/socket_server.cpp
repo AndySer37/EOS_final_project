@@ -3,6 +3,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <time.h>
+#include <ctype.h>
+#include <csignal> 
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/time.h>
@@ -10,45 +12,57 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 
-
 #include "game_server.h"
 
 using namespace std;
 #define MAX_SOCKET_CONNECTION 50
 #define SOCKET_PORT "8787"
 #define SOCKET_IP "127.0.0.1"
+#define GAME_COUNTDOWN_SECOND 10
 
 typedef struct sockaddr *sockaddrp;
 typedef enum{
-    IDLE_STATE,
-    LOADING_STATE,
-    LOGIN_STATE,
-    AWARD_STATE,
-
+    GAME_IDLE=0,
+    GAME_LOADING,
+    GAME_LOGIN,
+    GAME_AWARD,
+    GAME_COMPUTATION,
+    GAME_SHUTDOWN,
     MORNING_CHAT,
     MORNING_VOTE,
     MORNING_EFFECT,
-
-    EVENING_CHAT,
-    EVENING_VOTE,
-    EVENING_EFFECT
-
+    NIGHT,
 }GameState;
 volatile GameState game_state;
 
+const char GAME_STATE_MSG[][30] = {
+    "GAME_IDLE",
+    "GAME_LOADING",
+    "GAME_LOGIN",
+    "GAME_AWARD",
+    "GAME_COMPUTATION",
+    "GAME_SERVER_SHUTDOWN",
+    "MORNING_CHAT",
+    "MORNING_VOTE",
+    "MORNING_EFFECT",
+    "NIGHT",
+};
+
+
 struct sockaddr_in src_addr[MAX_SOCKET_CONNECTION];    //to record client ip
 socklen_t src_len = sizeof(src_addr[0]);
+int server_sockfd = 0;                     // file descriptor of socket server 
 int confd[MAX_SOCKET_CONNECTION] = {0};    // to record file descriptors of socket
 int num_conn = 0;                          // to record how many people are joining in game room
-volatile unsigned cnt_systick = 0;                    // to count system tick timer
+volatile unsigned cnt_systick = 0;         // to count system tick timer
+timer_t server_timer;                      // timer object of server
 clock_t t_gamestart, t_stamp;
 
 
-
-int socket_init(void){
+int socket_init(int *sockfd){
     // Allocate socket
-    int sockfd = socket(AF_INET,SOCK_STREAM,0);
-    if(sockfd < 0){
+    *sockfd = socket(AF_INET,SOCK_STREAM,0);
+    if(*sockfd < 0){
         perror("socket");
         return -1;
     }
@@ -60,15 +74,40 @@ int socket_init(void){
     socklen_t addr_len = sizeof(addr);
 
     //socket bind
-    int ret = bind(sockfd, (sockaddrp)&addr, addr_len);
+    int ret = bind(*sockfd, (sockaddrp)&addr, addr_len);
     if(ret < 0) {
         perror("bind");
         return -1;
     }
 
     // Set Max number of socket connection
-    listen(sockfd, MAX_SOCKET_CONNECTION);
-    return sockfd;
+    listen(*sockfd, MAX_SOCKET_CONNECTION);
+}
+
+void socket_broadcast(char const *announcement_type, char const *str){
+    int i=-1;
+    char buf_snd[100] = {};
+    char type_str[20] = {};
+
+    if(strcmp(announcement_type, "SYSTEM") == 0 || strcmp(announcement_type, "system") == 0)
+        sprintf(type_str, "\033[0;33m[SYSTEM]\033[0m ");
+
+    sprintf(buf_snd, "%s%s", type_str, str);
+    cout << buf_snd << endl;
+    for(int i = 0; i <= num_conn; i++)
+        send(confd[i], buf_snd, sizeof(buf_snd), 0);
+}
+
+// Shutdown Handler
+void shutdown_handler(int signal_num){
+    game_state = GAME_SHUTDOWN;
+    socket_broadcast("SYSTEM", GAME_STATE_MSG[game_state]);
+    for(int i = 0; i <= num_conn; i++)
+        close(confd[i]);
+    close(server_sockfd);
+     
+    // terminate program   
+    exit(signal_num);   
 }
 
 void *socket_rcv_handler(void *indexp){
@@ -86,7 +125,7 @@ void *socket_rcv_handler(void *indexp){
     }
 
     // GameState check: login
-    if(game_state != LOGIN_STATE){
+    if(game_state != GAME_LOGIN){
         time(&t_stamp);
         sprintf(buf_snd, "Sorry, the game has been started for %.0lf %s(s). Please wait for next round\n", 
             (difftime(t_stamp, t_gamestart)<60)? difftime(t_stamp, t_gamestart):difftime(t_stamp, t_gamestart)/60,
@@ -94,27 +133,23 @@ void *socket_rcv_handler(void *indexp){
         send(confd[userid], buf_snd, strlen(buf_snd), 0);
         confd[userid] = -1;
         pthread_exit(0);
-    }else cout << "Welcome [" << username << "] to the game room." << endl;
+    }else cout << "\033[0;33m[SYSTEM]\033[0m Welcome [" << username << "] to the game room." << endl;
     
 
     // A loop to deal with the messages from clients
     while(1){
         bzero(buf_rcv, sizeof(buf_rcv));    // clear rcv buffer
         recv(confd[userid], buf_rcv, sizeof(buf_rcv), 0);
-        
-        if(game_state == MORNING_CHAT || game_state == EVENING_CHAT || game_state == LOGIN_STATE){
-            // User quit
-            if(strlen(buf_rcv) == 0/* or strcmp("quit",buf_rcv) == 0*/){
-                sprintf(buf_snd, "[%s] quit the game", username);
-                cout << buf_snd << endl;
-                for(int i = 0;i <= num_conn; i++){
-                    if(userid == i || confd[i] == 0) continue;  // skip the user who quit the game
-                    send(confd[i], buf_snd, strlen(buf_snd), 0);
-                }
-                confd[userid] = -1;
-                pthread_exit(0);
-            }
 
+        // User quit
+        if(strlen(buf_rcv) == 0/* or strcmp("quit",buf_rcv) == 0*/){
+            sprintf(buf_snd, "[%s] quit the game", username);
+            socket_broadcast("SYSTEM", buf_snd);
+            confd[userid] = -1;
+            pthread_exit(0);
+        }
+
+        if(game_state == MORNING_CHAT || game_state == GAME_LOGIN){
             // broadcast to each other
             sprintf(buf_snd, "[%s]: %s", username, buf_rcv);
             cout << buf_snd << endl;
@@ -123,7 +158,15 @@ void *socket_rcv_handler(void *indexp){
                 send(confd[i], buf_snd, sizeof(buf_snd), 0);
             }
         }
-        else if(game_state == MORNING_EFFECT || game_state == EVENING_EFFECT){
+        else if(game_state == MORNING_EFFECT){
+
+        }
+
+        else if(game_state == MORNING_VOTE){
+
+        }
+
+        else if(game_state == NIGHT){
 
         }
     }
@@ -133,32 +176,30 @@ void systick_handler(int iSignNo){
     cnt_systick++;
 }
 
-int systick_init(void){
+int systick_init(timer_t *timer){
     struct sigevent evp;  
     struct itimerspec ts;  
-    timer_t timer;  
+     
     int ret;
-    evp.sigev_value.sival_ptr = &timer;  
+    evp.sigev_value.sival_ptr = timer;  
     evp.sigev_notify = SIGEV_SIGNAL;  
     evp.sigev_signo = SIGUSR1;  
     signal(evp.sigev_signo, systick_handler); 
-    ret = timer_create(CLOCK_REALTIME, &evp, &timer);  
+    ret = timer_create(CLOCK_REALTIME, &evp, timer);  
     if(ret) {
         perror("timer_create");
         return -1;
     } 
-    ts.it_interval.tv_sec = 1; // the spacing time  
+    ts.it_interval.tv_sec = 1;      // the spacing time  
     ts.it_interval.tv_nsec = 0;  
-    ts.it_value.tv_sec = 0;  // the delay time start
+    ts.it_value.tv_sec = 0;         // the delay time start
     ts.it_value.tv_nsec = 0;
     cout << "SysTick start..." << endl;
     ret = timer_settime(timer, 0, &ts, NULL);  
-    if(ret) {
-        perror("timer_settime"); 
-    } 
+    if(ret) perror("timer_settime");
 }
 
-void *users_login_handler(void *socketfd){
+void *login_handler(void *socketfd){
     int userid = 0;
     int sockfd = *(int *)socketfd;
     while(num_conn <= MAX_SOCKET_CONNECTION){
@@ -172,41 +213,47 @@ void *users_login_handler(void *socketfd){
             perror("pthread_create");
             return 0;
         }
+
+        // Make this process sleep 0.5 sec
         usleep(500000);
     }
 }
 
 void wait_timer_countdown(unsigned int sec){
     cnt_systick = 0;
-
     char buf_snd[100] = {};
+
     while(cnt_systick < sec){
-        if(sec - cnt_systick <= 5){
-            sprintf(buf_snd, "[SYSTEM] count down %d sec(s)", sec - cnt_systick);
-            cout << buf_snd << endl;
-            for(int i = 0; i <= num_conn; i++)
-                send(confd[i], buf_snd, sizeof(buf_snd), 0);
+        if(sec - cnt_systick <= GAME_COUNTDOWN_SECOND){
+            sprintf(buf_snd, "%s count down %d sec(s)", GAME_STATE_MSG[game_state], sec - cnt_systick);
+            socket_broadcast("", buf_snd);
         }
         cnt_systick++;
-        usleep(900000);
+        usleep(950000);
     }
 }
 
 int main(int argc, char *argv[]){
-    // socket init
-    int sockfd = socket_init();
-    // systick init
-    int ret = systick_init();
-
-    game_state = LOADING_STATE;
-    cout << "Game Loading......";
-    // create a thread as user login handler
-    pthread_t tid;                  
-    ret = pthread_create(&tid, NULL, users_login_handler, (void*) &sockfd);
-    if(ret < 0){
+    pthread_t tid;
+    if(systick_init(&server_timer) < 0) return -1;
+    if(socket_init(&server_sockfd) < 0) return -1;
+    // User login handler            
+    if(pthread_create(&tid, NULL, login_handler, (void*) &server_sockfd) < 0){
         perror("pthread_create");
         return -1;
     }
+    // Shutdown handler
+    signal(SIGINT, shutdown_handler); 
+
+    // Game Login
+    game_state = GAME_LOGIN;
+    socket_broadcast("SYSTEM", GAME_STATE_MSG[game_state]);
+    wait_timer_countdown(20);
+
+    // Game Loading
+    game_state = GAME_LOADING;
+    socket_broadcast("SYSTEM", GAME_STATE_MSG[game_state]);
+
     // create game server object
     int** tb = new int*[ROLE_AMO];
     for (int i = 0;i < ROLE_AMO; i++){
@@ -218,19 +265,24 @@ int main(int argc, char *argv[]){
     game_server game_server(11, tb);
     
 
-    game_state = LOGIN_STATE;
-    cout << "Done" << endl;
-    cout << "User Login state......" << endl;
-    wait_timer_countdown(20);
 
-
-    game_state = MORNING_CHAT;
-    cout << "User CHAT state......" << endl;
-    time(&t_gamestart);
-
+    // Game Loop:  MORNING_CHAT --> MORNING_VOTE --> NIGHT --> 
     while(1){
+        game_state = MORNING_CHAT;
+        socket_broadcast("SYSTEM", GAME_STATE_MSG[game_state]);
+        time(&t_gamestart);
+        wait_timer_countdown(60);
+
+        game_state = MORNING_VOTE;
+        socket_broadcast("SYSTEM", GAME_STATE_MSG[game_state]);
+        wait_timer_countdown(30);
+
+        game_state = NIGHT;
+        socket_broadcast("SYSTEM", GAME_STATE_MSG[game_state]);
+        wait_timer_countdown(45);
         sleep(2);
     }
+
 
     
 
