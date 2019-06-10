@@ -15,10 +15,10 @@
 #include "game_server.h"
 
 using namespace std;
-#define MAX_SOCKET_CONNECTION 50
+#define MAX_SOCKET_CONNECTION 80
 #define SOCKET_PORT "8787"
 #define SOCKET_IP "127.0.0.1"
-#define GAME_COUNTDOWN_SECOND 10
+#define GAME_COUNTDOWN_SECOND 5
 
 typedef struct sockaddr *sockaddrp;
 typedef enum{
@@ -54,9 +54,13 @@ socklen_t src_len = sizeof(src_addr[0]);
 int server_sockfd = 0;                     // file descriptor of socket server 
 int confd[MAX_SOCKET_CONNECTION] = {0};    // to record file descriptors of socket
 int num_conn = 0;                          // to record how many people are joining in game room
-volatile unsigned cnt_systick = 0;         // to count system tick timer
 timer_t server_timer;                      // timer object of server
 clock_t t_gamestart, t_stamp;
+volatile unsigned cnt_systick = 0;         // to count system tick timer
+
+game_server gs;
+string *user_effect_list;
+
 
 
 int socket_init(int *sockfd){
@@ -91,11 +95,14 @@ void socket_broadcast(char const *announcement_type, char const *str){
 
     if(strcmp(announcement_type, "SYSTEM") == 0 || strcmp(announcement_type, "system") == 0)
         sprintf(type_str, "\033[0;33m[SYSTEM]\033[0m ");
+    else if(strcmp(announcement_type, "ERROR") == 0 || strcmp(announcement_type, "error") == 0)
+        sprintf(type_str, "\033[0;31m[SYSTEM]\033[0m ");
 
     sprintf(buf_snd, "%s%s", type_str, str);
     cout << buf_snd << endl;
-    for(int i = 0; i <= num_conn; i++)
+    for(int i = 0; i <= num_conn; i++){
         send(confd[i], buf_snd, sizeof(buf_snd), 0);
+    }
 }
 
 // Shutdown Handler
@@ -133,7 +140,11 @@ void *socket_rcv_handler(void *indexp){
         send(confd[userid], buf_snd, strlen(buf_snd), 0);
         confd[userid] = -1;
         pthread_exit(0);
-    }else cout << "\033[0;33m[SYSTEM]\033[0m Welcome [" << username << "] to the game room." << endl;
+    }else {
+        sprintf(buf_snd, "Welcome [%s] to the game", username);
+        socket_broadcast("SYSTEM", buf_snd);
+    }
+    
     
 
     // A loop to deal with the messages from clients
@@ -154,7 +165,7 @@ void *socket_rcv_handler(void *indexp){
             sprintf(buf_snd, "[%s]: %s", username, buf_rcv);
             cout << buf_snd << endl;
             for(int i = 0; i <= num_conn; i++){
-                if(i == userid || 0 == confd[i]) continue;    // skip the user who send the msg
+                if(i == userid || confd[i] == 0) continue;    // skip the user who send the msg
                 send(confd[i], buf_snd, sizeof(buf_snd), 0);
             }
         }
@@ -235,6 +246,7 @@ void wait_timer_countdown(unsigned int sec){
 
 int main(int argc, char *argv[]){
     pthread_t tid;
+    srand(time(NULL));
     if(systick_init(&server_timer) < 0) return -1;
     if(socket_init(&server_sockfd) < 0) return -1;
     // User login handler            
@@ -248,22 +260,46 @@ int main(int argc, char *argv[]){
     // Game Login
     game_state = GAME_LOGIN;
     socket_broadcast("SYSTEM", GAME_STATE_MSG[game_state]);
-    wait_timer_countdown(20);
-
+    while(num_conn < 3){
+        wait_timer_countdown(20);
+        if(num_conn >= 3) break;
+        socket_broadcast("SYSTEM", "Not enough players, continue waiting...");
+    }
+    
     // Game Loading
     game_state = GAME_LOADING;
     socket_broadcast("SYSTEM", GAME_STATE_MSG[game_state]);
 
-    // create game server object
+    // Create game server object
     int** tb = new int*[ROLE_AMO];
     for (int i = 0;i < ROLE_AMO; i++){
         tb[i] = new int [3];
-        tb[i][0] = i;
-        tb[i][1] = DEFAULT;
-        tb[i][2] = 1;
+        tb[i][0] = DEFAULT;     // player
+        tb[i][1] = DEFAULT;     // obj
+        tb[i][2] = 0;           // alive or not
     }
-    game_server game_server(11, tb);
+
+    int num_players=0, i=0;
+    do{
+        int role_idx = rand() % ROLE_AMO;
+        // if user exit the game || role repeat
+        if(confd[i] == -1 || tb[i][role_idx] == DEFAULT) continue;
+        tb[role_idx][0] = i;
+        tb[role_idx][1] = DEFAULT;
+        tb[role_idx][2] = 1;
+        num_players++;
+    }while(i++ < num_conn);
+    gs = game_server(num_players, tb);
+
     
+    for (int i = 0;i < ROLE_AMO; i++){
+        char buf_snd[30] = {};
+        // if the role exist, send msg to client corresponding to the role.
+        if(gs.role_table[i][2] == 1){     
+            // sprintf(buf_snd, "--role %d --p %d --amo %d", i, gs.role_table[i][1], num_players);
+            // send(confd[gs.role_table[i][1]], buf_snd, sizeof(buf_snd), 0);
+        }
+    }
 
 
     // Game Loop:  MORNING_CHAT --> MORNING_VOTE --> NIGHT --> 
