@@ -491,10 +491,10 @@ bool game_server::vote_update(string *str_arr){
         ss << "Nobody is put to death.\n";
     }
     else{
+        vote_death = max;
         ss << "Player " << max << " is put to death\n";
         alive --;
     }
-    vote_death = max;
     event_des = ss.str();
     return true;
 }
