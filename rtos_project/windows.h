@@ -193,7 +193,7 @@ void Chatroom::output_reflesh(int w, string str){
             wrefresh(chat_o_box);
             touchwin(chat_o);
             getyx(chat_o, y, x);
-            str +="\n";
+            // str +="\n";
             mvwprintw(chat_o, y, 2, str.c_str());
             wrefresh(chat_o);
             touchwin(chat_i_box);
@@ -207,7 +207,7 @@ void Chatroom::output_reflesh(int w, string str){
             wrefresh(sysmsg_box);
             touchwin(sysmsg);
             getyx(sysmsg, y, x);
-            str +="\n";
+            // str +="\n";
             mvwprintw(sysmsg, y, 2, str.c_str());
             wrefresh(sysmsg);
             touchwin(chat_i_box);
@@ -233,7 +233,6 @@ public:
     ~Windows();
     void chatroom();
     string input();
-    string input(bool &);
     void recv_msg(int , string );
     void recv_msg(int , stringstream &);
 private:
@@ -275,18 +274,14 @@ void Windows::chatroom(){
     chat_room = new Chatroom();
 }
 
+
 string Windows::input(){
-    bool b = true;
-    return input(b);
-}
-string Windows::input(bool &sth){
     int x;
     chat_room->msg.clear();
     while(1){
         if (kbhit()) {
             x=getch();
             if(x == 27){
-                sth = 0;
                 touchwin(stdscr);
                 endwin();
                 return "";
@@ -301,12 +296,6 @@ string Windows::input(bool &sth){
             else{
                 chat_room->intput(x);
             }
-        }
-        if(!sth){
-            // touchwin(stdscr);
-            // endwin();
-            // break;
-            return "";
         }
     }
 }
