@@ -128,6 +128,7 @@ int main(int argc,char **argv){
         return -1;
     }
 
+    initial();
     // Continue typing
     while(!flag_shutdown && !game_start){
         char x,y,z;
