@@ -202,7 +202,7 @@ void *socket_rcv_handler(void *indexp){
             sprintf(buf_snd, "[%s]: %s", username, buf_rcv);
             cout << buf_snd << endl;
             for(int i = 0; i <= num_conn; i++){
-                if(i == userid || confd[i] == 0) continue;    // skip the user who send the msg
+                // if(i == userid || confd[i] == 0) continue;    // skip the user who send the msg
                 send(confd[i], buf_snd, sizeof(buf_snd), 0);
             }
         }else if(game_state == MORNING_VOTE && player_tb[userid].alive){
