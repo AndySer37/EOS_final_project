@@ -107,7 +107,6 @@ class Role{
 };
 void Role::game_start_update(string str){
 
-    w.chatroom();
     stringstream in_ss;
     in_ss << str;
     string n;

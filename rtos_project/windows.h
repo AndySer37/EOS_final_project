@@ -260,6 +260,7 @@ Windows::Windows(){
     intrflush(stdscr,FALSE);
     keypad(stdscr,TRUE);
     refresh();
+    chatroom();
 }
 
 Windows::~Windows(){
