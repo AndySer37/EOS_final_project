@@ -69,7 +69,7 @@ void *recv_handler(void *arg){
     }
 }
 
-int getch(void){
+int getch1(void){
     int ch;
     struct termios oldt;
     struct termios newt;
@@ -131,11 +131,11 @@ int main(int argc,char **argv){
     // Continue typing
     while(!flag_shutdown && !game_start){
         char x,y,z;
-        x = getch();
+        x = getch1();
 
         if (x == 27){
-            y = getch();
-            z = getch();
+            y = getch1();
+            z = getch1();
             if (y == 91){
                 switch (z){
                     case 65:

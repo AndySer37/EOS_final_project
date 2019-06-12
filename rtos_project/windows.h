@@ -6,8 +6,42 @@
 #include <time.h>
 using namespace std;
 
-void initial();
-int kbhit ();
+void initial()
+{
+    initscr();
+    cbreak();       //unblocking keyboard intupt
+    start_color();
+    init_color(COLOR_BLACK, 100, 100, 100);
+    init_pair(0,COLOR_BLACK,COLOR_BLACK);
+    init_pair(1,COLOR_RED,COLOR_BLACK);
+    init_pair(2,COLOR_GREEN,COLOR_BLACK);
+    init_pair(3,COLOR_YELLOW,COLOR_BLACK);
+    init_pair(4,COLOR_BLUE,COLOR_BLACK);
+    init_pair(5,COLOR_MAGENTA,COLOR_BLACK);
+    init_pair(6,COLOR_CYAN,COLOR_BLACK);
+    init_pair(7,COLOR_WHITE,COLOR_BLACK);
+    nonl();
+    curs_set(0);
+    nodelay(stdscr,TRUE);
+    noecho();
+    // echo();
+    intrflush(stdscr,FALSE);
+    keypad(stdscr,TRUE);
+    refresh();
+}
+
+int kbhit()
+{
+    int ch = getch();
+
+    if (ch != ERR) {
+        ungetch(ch);
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
 
 class Player
 {
@@ -32,8 +66,8 @@ public:
     void output_reflesh(string name, string msg);
     void send_msg(string msg);
     void recv_msg(string msg);
-    void intput(int c);
-    WINDOW *chat_o, *chat_i;
+    string intput(int c);
+    WINDOW *chat_o, *chat_i, *plist;
     WINDOW *chat_o_box, *chat_i_box;
     string msg;
     Player *p_self;
@@ -41,6 +75,9 @@ private:
 };
 
 Chatroom::Chatroom(){
+
+    plist=newwin(39,40,(LINES)/2-21,(COLS-40)/2-25);
+    
     chat_o=newwin(30,40,(LINES)/2-20,(COLS-40)/2+20);
     chat_o_box=newwin(32,42,(LINES)/2-21,(COLS-40)/2+19);
     box(chat_o_box,'*','*');
@@ -85,7 +122,7 @@ Chatroom::Chatroom(Player *p){
     wrefresh(chat_i);
 };
 
-void Chatroom::intput(int c){
+string Chatroom::intput(int c){
     int x, y;
     touchwin(chat_i);
     getyx(chat_i,y,x);
@@ -100,7 +137,6 @@ void Chatroom::intput(int c){
         send_msg(msg);  //send msg;
         wclear(chat_i);
         mvwprintw(chat_i,2,2,":");
-        msg.clear();
     }
     else{
         wprintw(chat_i, "%c", c);
@@ -108,6 +144,7 @@ void Chatroom::intput(int c){
     }
     touchwin(chat_i);
     wrefresh(chat_i);
+    return msg;
 }
 void Chatroom::output_reflesh(){
     touchwin(chat_o);
@@ -134,12 +171,14 @@ void Chatroom::output_reflesh(string name, string str){
 }
 
 
-void Chatroom::send_msg(string msg){
-    output_reflesh(p_self->name, msg);
+void Chatroom::send_msg(string msgs){
+    // output_reflesh(p_self->name, msg);
     //TODO
+    // recv_msg(msg);
+
 }
-void Chatroom::recv_msg(string msg){
-    output_reflesh(msg);
+void Chatroom::recv_msg(string msgs){
+    output_reflesh(msgs);
 }
 
 
@@ -156,21 +195,26 @@ class Windows
 public:
     Windows();
     void playerlist();
+    void playerlist_reflesh();
     void chatroom();
+    string input(bool *);
+    Chatroom *chat_room;
 private:
     WINDOW *plist;
-    Chatroom *chat_room;
     Player p[11], *p_self;
 };
 
 Windows::Windows(){
-    plist=newwin(39,40,(LINES)/2-21,(COLS-40)/2-25);
     nodelay(plist,TRUE);
     box(plist,'|','-');
     p_self = &p[0];
 }
 
 void Windows::playerlist(){
+    plist=newwin(39,40,(LINES)/2-21,(COLS-40)/2-25);
+    playerlist_reflesh();
+}
+void Windows::playerlist_reflesh(){
     mvwprintw(plist,6,9,"|   I D   |   role   | live |");
     for(int i=0,j=0;j<11;j++){
         if(p[j].alive){
@@ -204,19 +248,27 @@ void Windows::playerlist(){
 void Windows::chatroom(){
     chat_room = new Chatroom(p_self);
     playerlist();
+}
+string Windows::input(bool *sth){
     int x;
+    chat_room->msg.clear();
     while(1){
-        chat_room->output_reflesh();
         if (kbhit()) {
             x=getch();
             if(x == 27){
+                endwin();
                 break;
+            }
+            else if(x == '\r'){
+                return chat_room->intput(x);
             }
             else{
                 chat_room->intput(x);
             }
         }
+        if(*sth){
+            break;
+        }
     }
 }
-
 #endif

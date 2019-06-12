@@ -18,7 +18,7 @@
 
 // --role [num] --obj [obj]                  for night: role for Role_id, obj for player or  -2 for none/ -1 for use/ 0 ~  for player
 // --p [num] --vote [vote_player]            // [vote_player] == -1 , not voting
-
+// --vote 2
 using namespace std;
 #define BUFSIZE 1024
 #define SERSIZE 30
@@ -83,6 +83,7 @@ class Role{
 
     char snd[BUFSIZE], rcv[BUFSIZE];
     Role *cls_ptr;
+
     pthread_t thread_id;
 
     Role(){}
@@ -140,7 +141,7 @@ void Role::save_ptr(Role *p){
         perror("could not create thread");
         return;
     }
-    while(1){
+    while(alive){
         switch(state_check){
             case 0:
                 day_func();
@@ -153,6 +154,7 @@ void Role::save_ptr(Role *p){
             //case 3:
         }
     }
+    cout << "You are dead !!\n";
 }
 Role::Role(int con, int role, int player, int player_amount){
     this->night = 0;
@@ -422,11 +424,17 @@ void *connection_handler(void *conn){
             int death, _role;
             sscanf(rcv, "--death %d --true-role %d", &death, &_role);
             ptr->alive_list[death] = false;
+            if (death == ptr->player){
+                ptr->alive == false;
+            }
         }    
         else if(strstr(rcv, "--death")){ 
             int death;
             sscanf(rcv, "--death %d", &death);
             ptr->alive_list[death] = false;
+            if (death == ptr->player){
+                ptr->alive == false;
+            }
         }    
         /////////////////////
         // system("clear");

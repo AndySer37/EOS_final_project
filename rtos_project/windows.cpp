@@ -25,43 +25,25 @@ int debug(string str){
 
 int main(int argc, char** argv) {
 
-    if(argc == 3){
-        connfd = connectsock(argv[1], argv[2], "tcp");
-    }
-    else if(argc == 2){
-        connfd = connectsock("127.0.0.1", argv[1], "tcp");
-    }
-    else {
-        connfd = -1;
-    }
+    // if(argc == 3){
+    //     connfd = connectsock(argv[1], argv[2], "tcp");
+    // }
+    // else if(argc == 2){
+    //     connfd = connectsock("127.0.0.1", argv[1], "tcp");
+    // }
+    // else {
+    //     connfd = -1;
+    // }
     
     initial();
-    // while(1){
-    //     if (kbhit()) {
-    //         char x=getch();
-    //         if(x == 27)
-    //             break;
-    //         else if(x == 127)
-    //             cout<<"backapsce\n";
-    //         else if(x == '\r')
-    //             cout<<"enter\n";
-    //         else
-    //             cout<<x<<endl;
-    //     }
-    // }
-
-
-
-
-
     Windows w;
 
     w.chatroom();
     
     endwin();
 
-    if(connfd != -1)
-        close(connfd);
+    // if(connfd != -1)
+    //     close(connfd);
 
     return 0;
 }
