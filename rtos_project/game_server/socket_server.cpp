@@ -196,21 +196,32 @@ void *socket_rcv_handler(void *indexp){
                 if(i == userid || confd[i] == 0) continue;    // skip the user who send the msg
                 send(confd[i], buf_snd, sizeof(buf_snd), 0);
             }
-        }else if(game_state == MORNING_VOTE){
+        }else if(game_state == MORNING_VOTE && player_tb[userid].alive){
             int target= -1;
             std::string tmp(buf_rcv);
-            // printf("len=%d, %s\n", (int)strlen(buf_rcv), buf_rcv);
+
+            // find where is 'vote'
             std::size_t found = tmp.find("vote");
             sscanf(&buf_rcv[found], "vote %d", &target);
             printf("p=%d, target=%d\n", userid, target);
             player_tb[userid].vote_target = target;
 
-        }else if(game_state == NIGHT){
-            int target= -1;
+        }else if(game_state == NIGHT && player_tb[userid].alive){
+            int target= -2;
             std::string tmp(buf_rcv);
-            // printf("len=%d, %s\n", (int)strlen(buf_rcv), buf_rcv);
+
+            // find where is 'obj'
             std::size_t found = tmp.find("obj");
             sscanf(&buf_rcv[found], "obj %d", &target);
+
+            // find role
+            int tmp_role, i;
+            for(i=0; i < ROLE_AMO; i++)
+                if(gs->role_table[i][0] == userid){
+                    tmp_role = i;
+                    break;
+                }
+
             printf("p=%d, target=%d\n", userid, target);
             player_tb[userid].obj_target = target;
         }
@@ -261,10 +272,17 @@ void table_to_string(char const *type, string *str_arr, int arr_size){
         }
     }else if(strcmp(type, "EFFECT") == 0 || strcmp(type, "effect") == 0){
         int idx=0; 
+
+
         for(int i=0; i < num_conn; i++){
             if(player_tb[i].alive){
+                int j;
+                for(j=0; j<ROLE_AMO; j++)
+                    if(i == gs->role_table[j][0])
+                        break;
+
                 char buf_obj[20];
-                sprintf(buf_obj, "--p %d --obj %d", i, player_tb[i].obj_target);
+                sprintf(buf_obj, "--role %d --obj %d", j, player_tb[i].obj_target);
                 str_arr[idx++] = string(buf_obj);
             }
         }
@@ -390,7 +408,7 @@ int main(int argc, char *argv[]){
         for(int i=0; i < MAX_SOCKET_CONNECTION; i++)
             player_tb[i].vote_target = -1;
         socket_broadcast("SYSTEM", GAME_STATE_MSG[game_state]);
-        wait_timer_countdown(30);
+        wait_timer_countdown(15);
 
         // Collect and translate the result of voting and input to game_server object
         string str_arr1[gs->alive];
@@ -406,14 +424,15 @@ int main(int argc, char *argv[]){
             socket_broadcast("", tmp_buf);
             player_tb[gs->vote_death].alive = 0;    //update player tb
         }
+        if (gs->game_over_check()){
 
+        }
 
         game_state = NIGHT;
         for(int i=0; i < MAX_SOCKET_CONNECTION; i++)    // clear obj table
-            player_tb[i].obj_target = -1;
+            player_tb[i].obj_target = -2;
         socket_broadcast("SYSTEM", GAME_STATE_MSG[game_state]);
-        wait_timer_countdown(45);
-        bool check = gs->game_over_check();
+        wait_timer_countdown(15);
 
         // Collect and translate the result of effect and input to game_server object
         string str_arr2[gs->alive];
@@ -428,31 +447,48 @@ int main(int argc, char *argv[]){
         cout << gs->event_des << endl;
 
         // 暗殺結果公佈
-        if(gs->death_list.size() > 0){
-            for(int i=0; i < gs->death_list.size(); i++){
-                char tmp_buf[40];
-                gs->death_list[i].player; //亡人
-                int true_role, j;
-                for(j=0; j < ROLE_AMO; j++)
-                    if(gs->role_table[j][0] == gs->death_list[i].player);{
-                        true_role = j; //亡人職業
-                        break;
-                    }
-                sprintf(tmp_buf, "--death %d --true-role %d", gs->death_list[i].player, true_role);
-                socket_broadcast("", tmp_buf);
-                player_tb[gs->death_list[i].player].alive = 0; 
-            }
-        }
+        vector<struct death_info>::iterator iter = gs->death_list.begin();
+        for(iter; iter != gs->death_list.end(); ++iter){
+            char tmp_buf[40];
+            cout  << "Player " << iter->player << " " << iter->death_des;
+            // gs->death_list[i].player; //亡人
+            int true_role, j;
+            for(j=0; j < ROLE_AMO; j++)
+                if(gs->role_table[j][0] == iter->player){
+                    true_role = j; //亡人職業
+                    break;
+                }
+            sprintf(tmp_buf, "--death %d --true-role %d", iter->player, true_role);
+            socket_broadcast("", tmp_buf);
+            player_tb[iter->player].alive = 0; 
+            
+        } 
+        // if(gs->death_list.size() > 0){
+        //     for(int i=0; i < gs->death_list.size(); i++){
+        //         char tmp_buf[40];
+        //         gs->death_list[i].player; //亡人
+        //         int true_role, j;
+        //         for(j=0; j < ROLE_AMO; j++)
+        //             if(gs->role_table[j][0] == gs->death_list[i].player){
+        //                 true_role = j; //亡人職業
+        //                 break;
+        //             }
+        //         sprintf(tmp_buf, "--death %d --true-role %d", gs->death_list[i].player, true_role);
+        //         socket_broadcast("", tmp_buf);
+        //         player_tb[gs->death_list[i].player].alive = 0; 
+        //     }
+        // }
 
         //// check god father alive ////
-        check = gs->godfather_alive_check();
-        if (check){
+        if (gs->godfather_alive_check()){
             cout << "god father dead.\n";
             cout << "next god father player : " << gs->role_table[6][0] << endl;
             cout << "command :--gf\n";
         }
         //// check game over ////
-        check = gs->game_over_check();
+        if (gs->game_over_check()){
+
+        }
     }
     return 0;
 }

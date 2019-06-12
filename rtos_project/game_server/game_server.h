@@ -201,6 +201,7 @@ bool game_server::night_update(string *str_arr){
         }
         obj_player = (pch1 + 6);
         role_table[atoi(role.c_str())][1] = atoi(obj_player);
+        cout << atoi(role.c_str()) << " " << atoi(obj_player) << endl;
     }
     //// check role_table ////
     // for (i = 0; i < ROLE_AMO; i++){
@@ -208,7 +209,7 @@ bool game_server::night_update(string *str_arr){
     // }
     int obj;
     //// police ////
-    if (role_table[0][1] != DEFAULT && role_table[0][1] != NOT_USE){
+    if (role_table[0][1] != DEFAULT && role_table[0][1] != NOT_USE && role_table[0][2] == 1){
         obj = role_table[0][1];
         for (i = 0; i < ROLE_AMO; i++){
             if (role_table[i][0] == obj){
@@ -237,9 +238,8 @@ bool game_server::night_update(string *str_arr){
                 break;
         }
     }
-
     //// detective ////
-    if (role_table[1][1] != DEFAULT && role_table[1][1] != NOT_USE){
+    if (role_table[1][1] != DEFAULT && role_table[1][1] != NOT_USE && role_table[1][2] == 1){
         obj = role_table[1][1];
         for (i = 0; i < ROLE_AMO; i++){
             if (role_table[i][0] == obj){
@@ -267,9 +267,8 @@ bool game_server::night_update(string *str_arr){
                 break;
         }
     }
-
     //// streetwalker ////
-    if (role_table[8][1] != DEFAULT && role_table[8][1] != NOT_USE){
+    if (role_table[8][1] != DEFAULT && role_table[8][1] != NOT_USE && role_table[8][2] == 1){
         obj = role_table[8][1];
         for (i = 0; i < ROLE_AMO; i++){
             if (role_table[i][0] == obj){
@@ -284,10 +283,9 @@ bool game_server::night_update(string *str_arr){
             respond[role_table[8][0]] = "You had successfully restricted your objective's action.\n";
         }
     }
-
     //// bodyguard ////
     bool check = false;
-    if (role_table[2][1] != -2 && respond[role_table[2][0]] == ""){ // streetwalker had slept first
+    if (role_table[2][1] != -2 && respond[role_table[2][0]] == "" && role_table[2][2] == 1){ // streetwalker had slept first
         obj = role_table[2][1];
         for (i = 0; i < ROLE_AMO; i++){
             if (role_table[i][1] == obj){
@@ -317,7 +315,7 @@ bool game_server::night_update(string *str_arr){
         }
     }
     //// spy ////
-    if (role_table[4][1] != DEFAULT && role_table[4][1] != NOT_USE && respond[role_table[4][0]] == ""){     // streetwalker had slept first
+    if (role_table[4][1] != DEFAULT && role_table[4][1] != NOT_USE && respond[role_table[4][0]] == "" && role_table[4][2] == 1){     // streetwalker had slept first
         obj = role_table[4][1];
         for (i = 0; i < ROLE_AMO; i++){
             if (role_table[i][0] == obj){
@@ -334,8 +332,9 @@ bool game_server::night_update(string *str_arr){
             respond[role_table[4][0]] = "Your objective had no action.\n";
         }
     }
+    cout << "okok8" << endl;
     //// soldier ////
-    if (role_table[5][1] != -2){
+    if (role_table[5][1] != -2 && role_table[5][2] == 1){
         for(i = 0; i < ROLE_AMO; i++){
             if (i != 10 && role_table[i][1] == role_table[5][0] && respond[role_table[i][0]] != "Your action had been restricted, you couldn't do anything.\n"){
                 respond[role_table[i][0]] = "You " + DEATH_DES[2];
@@ -351,7 +350,7 @@ bool game_server::night_update(string *str_arr){
     bool doctor_save = false;
     bool survivor_save = false;
     //// Serial killer ////
-    if (role_table[10][1] != DEFAULT && role_table[10][1] != NOT_USE && respond[role_table[10][0]] == ""){     // Maybe killed by bodyguard
+    if (role_table[10][1] != DEFAULT && role_table[10][1] != NOT_USE && respond[role_table[10][0]] == "" && role_table[10][2] == 1){     // Maybe killed by bodyguard
         obj = role_table[10][1];
 
         for(i = 0; i < ROLE_AMO; i++){
@@ -376,7 +375,7 @@ bool game_server::night_update(string *str_arr){
         respond[role_table[10][0]] = "You successfully executed the shooting !\n";
     }
     //// Godfather ////
-    if (role_table[6][1] != DEFAULT && role_table[6][1] != NOT_USE && respond[role_table[6][0]] == ""){
+    if (role_table[6][1] != DEFAULT && role_table[6][1] != NOT_USE && respond[role_table[6][0]] == "" && role_table[6][2] == 1){
         obj = role_table[6][1];
         for(i = 0; i < ROLE_AMO; i++){
             if (role_table[i][0] == obj){
@@ -401,11 +400,11 @@ bool game_server::night_update(string *str_arr){
     }
     //// Intimidate ////
     intimidate_obj = role_table[7][1];
-    if (role_table[7][1] != DEFAULT && role_table[7][1] != NOT_USE && respond[role_table[7][0]] == ""){
+    if (role_table[7][1] != DEFAULT && role_table[7][1] != NOT_USE && respond[role_table[7][0]] == "" && role_table[7][2] == 1){
         respond[role_table[7][0]] = "You had successfully intimidated your objective.\n";
     }
     //// doctor //// 
-    if (respond[role_table[3][0]] == ""){
+    if (respond[role_table[3][0]] == "" && role_table[3][2] == 1){
         if (doctor_save){
             respond[role_table[3][0]] = "You had successfully saved a life.\n";
         }
@@ -414,7 +413,7 @@ bool game_server::night_update(string *str_arr){
         }
     }
     //// survivor ////
-    if (respond[role_table[9][0]] == ""){
+    if (respond[role_table[9][0]] == "" && role_table[9][2] == 1){
         if (survivor_save){
             respond[role_table[9][0]] = "You had successfully survived from a shooting.\n";
         }
@@ -435,9 +434,16 @@ bool game_server::night_update(string *str_arr){
     else{
         for(iter; iter != death_list.end(); ++iter){
             ss << "Player " << iter->player << " " << iter->death_des;
+            for (i = 0 ; i < ROLE_AMO ; i++){
+                if (role_table[i][0] == iter->player){
+                    role_table[i][2] = 0;
+                    break;
+                }
+            }            
             alive --;
         } 
     }
+    cout << "okok13" << endl;
     event_des = ss.str();
     return true;
 }
@@ -494,6 +500,12 @@ bool game_server::vote_update(string *str_arr){
         vote_death = max;
         ss << "Player " << max << " is put to death\n";
         alive --;
+        for (i = 0 ; i < ROLE_AMO ; i++){
+            if (role_table[i][0] == vote_death){
+                role_table[i][2] = 0;
+                break;
+            }
+        }
     }
     event_des = ss.str();
     return true;
