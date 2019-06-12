@@ -13,12 +13,28 @@
 #include <pthread.h>
 #include <cstdio>
 #include <ctime>
+#include <ctype.h>
+#include <termios.h>
+
+// --role [num] --obj [obj]                  for night: role for Role_id, obj for player or  -2 for none/ -1 for use/ 0 ~  for player
+// --p [num] --vote [vote_player]            // [vote_player] == -1 , not voting
 
 using namespace std;
 #define BUFSIZE 1024
 #define SERSIZE 30
 #define Server_output false
-
+const char GAME_STATE_MSG[][30] = {
+    "GAME_IDLE",
+    "GAME_LOADING",
+    "GAME_LOGIN",
+    "GAME_AWARD",
+    "GAME_COMPUTATION",
+    "GAME_SERVER_SHUTDOWN",
+    "MORNING_CHAT",
+    "MORNING_VOTE",
+    "MORNING_EFFECT",
+    "NIGHT",
+};
 const string role_name[] = {" ", "police", "detective", "bodyguard", "doctor", "spy", "Retired soldier"\
                     , "Godfather", "Intimidate", "streetwalker", "survivor", "Serial killer"};
 const string group_name[] = {"Town", "Mafia", "Neutral/Kindness", "Neutral/Evil"};
@@ -28,8 +44,21 @@ const string winning_cond[] = {
     "Be alive until the game end",
     "Kill all the people in the game"
 };
-void *connection_handler(void *);
 
+char buf_snd_role[255] = {0};                // temporary key in buffer
+void *connection_handler(void *);
+int getch_role(void){
+    int ch;
+    struct termios oldt;
+    struct termios newt;
+    tcgetattr(STDIN_FILENO, &oldt); /*store old settings */
+    newt = oldt; /* copy old settings to new settings */
+    newt.c_lflag &= ~(ICANON | ECHO); /* make one change to old settings in new settings */
+    tcsetattr(STDIN_FILENO, TCSANOW, &newt); /*apply the new settings immediatly */
+    ch = getchar(); /* standard getchar call */
+    tcsetattr(STDIN_FILENO, TCSANOW, &oldt); /*reapply the old settings */
+    return ch; /*return received char */
+}
 class Role{
   public:
     // 1 police, 2 detective, 3 bodyguard, 4 doctor, 5 spy, 6 soldier
@@ -46,7 +75,9 @@ class Role{
     int group;
     int ability_count;
     int connfd;
+    int n;
     bool alive;
+    int night;
     bool chating_ability;
     char snd[BUFSIZE], rcv[BUFSIZE];
     Role *cls_ptr;
@@ -87,7 +118,8 @@ void Role::save_ptr(Role *p){
     }
 }
 Role::Role(int con, int role, int player, int player_amount){
-    this->state_check = 1;
+    this->night = 0;
+    this->state_check = 0;
     this->connfd = con;
     this->Role_id = role;
     this->player = player;
@@ -140,10 +172,17 @@ int Role::vote_period(){
         cout << "not to vote if [player num] = -1\n";
         kb_input = input();
         voting = check_voting(kb_input);
+        ostringstream ss;
         if(voting != -1){
+            ss << "--p " << player << " --vote " << voting;
+            if ((n = write(connfd, ss.str().c_str(), strlen(ss.str().c_str()))) == -1)
+                errexit("Error: write()\n");   
             cout << "You decide to vote player " << voting << endl;
         }
         else{
+            ss << "--p " << player << " --vote " << voting;
+            if ((n = write(connfd, ss.str().c_str(), strlen(ss.str().c_str()))) == -1)
+                errexit("Error: write()\n");  
             cout << "You don't want to vote anyone.\n";
         }
     }
@@ -161,11 +200,11 @@ void Role::day_func(){
 void Role::night_func(){
     cout << "Now, night is coming\n";
     string kb_input = "";
-    player_obj = -1;
+    player_obj = -2;
     using_skill = false;
     char *pch;
     const char *res;
-    while(state_check == 2){  
+    while(state_check == 2){ 
         cout << "Please make a decision\n";
         cout << "Command : --use, --notuse, --obj [player num], [chatting]\n";
         kb_input = input();
@@ -188,14 +227,18 @@ void Role::night_func(){
                 case 6:
                 case 10:
                     cout << "Your decision is ";
-                    if(using_skill)
+                    if(player_obj == -1)
                         cout << "launch.\n";
-                    else
+                    else if(player_obj == -2)
                         cout << "not to launch.\n";
                     break;
                 default:
                     break;
             }
+            ostringstream ss;
+            ss << "--role " << Role_id << " --obj " << player_obj;
+            if ((n = write(connfd, ss.str().c_str(), strlen(ss.str().c_str()))) == -1)
+                errexit("Error: write()\n");  
         }
         else{
             if(group == 1){
@@ -207,21 +250,18 @@ void Role::night_func(){
 /// --use, --notuse --obj ? else chatting
 bool Role::check_obj(string str){
     if (str == "--use"){
-        using_skill = true;
+        player_obj = -1;
         return true;
     }    
     if (str == "--notuse"){
-        using_skill = false;
+        player_obj = -2;
         return true;
     }      
-    char *c_ptr;
     char *cstr = new char[str.length() + 1];
     strcpy(cstr, str.c_str());
-    
-    c_ptr = strstr (cstr,"--obj "); 
-    if (c_ptr != NULL){
-        char *c = (c_ptr + 6);
-        player_obj = atoi(c);
+
+    if (strstr (cstr,"--obj ")){
+        sscanf(cstr, "--obj %d", &player_obj);
         if(player_obj < player_amount && player_obj >= 0){
             if(alive_list[player_obj] && player_obj != player){
                 return true;
@@ -234,18 +274,17 @@ bool Role::check_obj(string str){
             cout << "Error: Invaild player number\n";
         }
     }
-    player_obj = -1;
+    player_obj = -2;
     return false;
 }
 int Role::check_voting(string str){
-    char *c_ptr;
     char *cstr = new char[str.length() + 1];
     strcpy(cstr, str.c_str());
     int num;
-    c_ptr = strstr (cstr,"--vote "); 
-    if (c_ptr != NULL){
-        char *c = (c_ptr + 7);
-        num = atoi(c);
+
+    if (strstr (cstr,"--vote ")){
+        sscanf(cstr, "--vote %d", &num);
+        cout << "NUM : " << num << endl;
         if(num == -1){
             return -1;
         }
@@ -264,17 +303,54 @@ int Role::check_voting(string str){
     return -1;
 }
 string Role::input(){
-    string kb_input = "";
-    char c;
-    cin.get(c);
-    while(1){   
-        if(c == '\n'){
+   while(1){
+        char x,y,z;
+        x = getch_role();
+
+        if (x == 27){
+            y = getch_role();
+            z = getch_role();
+            if (y == 91){
+                switch (z){
+                    case 65:
+                        printf("%c[2K\r", 27);
+                        printf("up");
+                        sprintf(buf_snd_role, "up");
+                        break;
+                    case 66:
+                        printf("%c[2K\r", 27);
+                        printf("down");
+                        sprintf(buf_snd_role, "down");
+                        break;
+                    // case 67:
+                    //     printf("%c[2K\r", 27);
+                    //     printf("right\r");
+                    //     break;
+                    // case 68:
+                    //     printf("%c[2K\r", 27);
+                    //     printf("left\r");
+                    //     break;
+                }
+            }
+        }
+        else if(x == 8 || x == 127){
+            printf("\b \b");
+            fflush(stdout);
+            sprintf(buf_snd_role, "%s\b \b", buf_snd_role);
+        }
+        else if(x == 10){
+            printf("%c", x);
+            // printf("%s\n", buf_snd_role);
             break;
         }
-        kb_input += c;
-        cin.get(c);
-    } 
-    return kb_input;   
+        else if(x != -1){
+            printf("%c", x);
+            sprintf(buf_snd_role, "%s%c", buf_snd_role, x);
+        }
+    }
+    string str = string(buf_snd_role);
+    memset(buf_snd_role, 0, sizeof(buf_snd_role));
+    return str;   
 }
 void Role::output(string out){
     int n;
@@ -286,14 +362,45 @@ void Role::output(string out){
 void *connection_handler(void *conn){
     Role *ptr = (Role*)conn;
     int n;
-    char snd[BUFSIZE], rcv[BUFSIZE];
+    char *c_ptr;
+    char rcv[BUFSIZE];
     while(1){
         memset(rcv, 0, BUFSIZE);
-        memset(snd, 0, BUFSIZE);
         if((n = read(ptr->connfd, rcv, BUFSIZE)) == -1)
             errexit("Error: read()\n");
+        ///////////////////// 
+
+        if(strstr(rcv, "MORNING_EFFECT")){
+
+        }
+        else if(strstr(rcv, "MORNING_CHAT")){
+            ptr->state_check = 0;         
+        }
+        else if(strstr(rcv, "NIGHT")){
+            ptr->state_check = 2;      
+        }
+        else if(strstr(rcv, "MORNING_VOTE")){
+            ptr->state_check = 1;
+        }
+
+        if(strstr(rcv, "--death")){ 
+            int death;
+            sscanf(rcv, "--death %d", &death);
+            ptr->alive_list[death] = false;
+        }
+        if(strstr(rcv, "--true-role")){ 
+            int death, _role;
+            sscanf(rcv, "--death %d --true-role %d", &death, &_role);
+            ptr->alive_list[death] = false;
+        }        
+        /////////////////////
         // system("clear");
+
         cout << rcv << endl;
+        if (strlen(buf_snd_role) != 0){
+            cout << buf_snd_role;
+        }
+
     }
     pthread_exit((void *)conn);
     return 0;

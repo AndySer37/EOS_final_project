@@ -97,7 +97,7 @@ int socket_init(int *sockfd){
 
 void socket_broadcast(char const *announcement_type, char const *str){
     int i=-1;
-    char buf_snd[100] = {};
+    char buf_snd[255] = {};
     char type_str[20] = {};
 
     if(strcmp(announcement_type, "SYSTEM") == 0 || strcmp(announcement_type, "system") == 0)
