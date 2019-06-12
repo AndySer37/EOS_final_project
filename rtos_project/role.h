@@ -186,6 +186,9 @@ void Role::save_ptr(Role *p){
     while(!game_over){
         day_func();
     }
+    ss_win.str("");
+    ss_win << "Client Close.";
+    w.recv_msg(1, ss_win);
 }
 Role::Role(int con, int role, int player, int player_amount){
     this->night = 0;
@@ -487,7 +490,8 @@ void *connection_handler(void *conn){
             ss_win_thread.str("");
             ss_win_thread << "The Game is Over.";
             w.recv_msg(1, ss_win_thread); 
-            ptr->game_over = true;   
+            ptr->game_over = true;  
+            break; 
         } 
         if (strstr(rcv, "--quiet")){
             ss_win_thread.str("");
