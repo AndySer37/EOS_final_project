@@ -175,6 +175,16 @@ void *socket_rcv_handler(void *indexp){
             confd[userid] = -1;
             player_tb[userid].alive = 0;
             num_players--; 
+            if(gs){
+                for(int i=0; i<ROLE_AMO; i++){
+                    if(gs->role_table[i][0] == userid){
+                        gs->role_table[i][2] = 0;
+                        printf("Clear alive item in role_table.\n");
+                        break;
+                    }
+                }
+            }
+
             pthread_exit(0);
         }
 
@@ -187,7 +197,7 @@ void *socket_rcv_handler(void *indexp){
                 send(confd[i], buf_snd, sizeof(buf_snd), 0);
             }
         }else if(game_state == MORNING_VOTE){
-            int target=0;
+            int target= -1;
             std::string tmp(buf_rcv);
             // printf("len=%d, %s\n", (int)strlen(buf_rcv), buf_rcv);
             std::size_t found = tmp.find("vote");
@@ -196,7 +206,7 @@ void *socket_rcv_handler(void *indexp){
             player_tb[userid].vote_target = target;
 
         }else if(game_state == NIGHT){
-            int target=0;
+            int target= -1;
             std::string tmp(buf_rcv);
             // printf("len=%d, %s\n", (int)strlen(buf_rcv), buf_rcv);
             std::size_t found = tmp.find("obj");
@@ -234,12 +244,16 @@ int systick_init(timer_t *timer){
     if(ret) perror("timer_settime");
 }
 
+void update_tb_from_gs(void){
+
+}
+
 // translate voting result or effect result to string array
-void table_to_string(char const *type, string *str_arr){
+void table_to_string(char const *type, string *str_arr, int arr_size){
     if(strcmp(type, "VOTE") == 0 || strcmp(type, "vote") == 0){
-        int idx=0; 
-        for(int i=0; i < MAX_SOCKET_CONNECTION; i++){
-            if(player_tb[i].vote_target != -1){
+        int idx=0;
+        for(int i=0; i < num_conn; i++){
+            if(player_tb[i].alive){
                 char buf_vote[20];
                 sprintf(buf_vote, "--p %d --vote %d", i, player_tb[i].vote_target);
                 str_arr[idx++] = string(buf_vote);
@@ -247,14 +261,16 @@ void table_to_string(char const *type, string *str_arr){
         }
     }else if(strcmp(type, "EFFECT") == 0 || strcmp(type, "effect") == 0){
         int idx=0; 
-        for(int i=0; i < MAX_SOCKET_CONNECTION; i++){
-            if(player_tb[i].obj_target != -1){
+        for(int i=0; i < num_conn; i++){
+            if(player_tb[i].alive){
                 char buf_obj[20];
                 sprintf(buf_obj, "--p %d --obj %d", i, player_tb[i].obj_target);
                 str_arr[idx++] = string(buf_obj);
             }
         }
     }
+    for(int i=0; i<arr_size;i++)
+        printf("%d %s\n",i, str_arr[i].c_str());
 }
 
 void *login_handler(void *socketfd){
@@ -378,33 +394,54 @@ int main(int argc, char *argv[]){
 
         // Collect and translate the result of voting and input to game_server object
         string str_arr1[gs->alive];
-        table_to_string("VOTE", str_arr1);
+        table_to_string("VOTE", str_arr1, gs->alive);
         gs->vote_update(str_arr1);
         cout << "\n\nEvent_des : \n\n";
         cout << gs->event_des << endl;
         cout << "------------------------------\n";
+        // 投票結果宣佈
+        if(gs->vote_death != -1){
+            char tmp_buf[20];
+            sprintf(tmp_buf, "--death %d", gs->vote_death);
+            socket_broadcast("", tmp_buf);
+            player_tb[gs->vote_death].alive = 0;    //update player tb
+        }
 
 
         game_state = NIGHT;
-        for(int i=0; i < MAX_SOCKET_CONNECTION; i++)
+        for(int i=0; i < MAX_SOCKET_CONNECTION; i++)    // clear obj table
             player_tb[i].obj_target = -1;
         socket_broadcast("SYSTEM", GAME_STATE_MSG[game_state]);
         wait_timer_countdown(45);
         bool check = gs->game_over_check();
-        sleep(2);
-
 
         // Collect and translate the result of effect and input to game_server object
         string str_arr2[gs->alive];
-        table_to_string("EFFECT", str_arr2);
-        for (int i = 0; i < ROLE_AMO ; i++){
+        table_to_string("EFFECT", str_arr2, gs->alive);
+        gs->night_update(str_arr2);   
+        for (int i = 0; i < ROLE_AMO ; i++)
             cout << i << ": " << gs->respond[i];
-        }
-        if (gs->intimidate_obj >= 0){
+        if (gs->intimidate_obj >= 0)
             cout << "Player " << gs->intimidate_obj << " will be prohibited to chat\n";
-        } 
         cout << "\n\nEvent_des : \n\n";
         cout << gs->event_des << endl;
+
+        // 暗殺結果公佈
+        if(gs->death_list.size() > 0){
+            for(int i=0; i < gs->death_list.size(); i++){
+                char tmp_buf[40];
+                gs->death_list[i].player; //亡人
+                int true_role, j;
+                for(j=0; j < ROLE_AMO; j++)
+                    if(gs->role_table[j][0] == gs->death_list[i].player);{
+                        true_role = j; //亡人職業
+                        break;
+                    }
+                sprintf(tmp_buf, "--death %d --true-role %d", gs->death_list[i].player, true_role);
+                socket_broadcast("", tmp_buf);
+                player_tb[gs->death_list[i].player].alive = 0; 
+            }
+        }
 
         //// check god father alive ////
         check = gs->godfather_alive_check();
