@@ -42,9 +42,9 @@ class game_server{
         for(int i = 0; i < ROLE_AMO; i++) {
             delete [] role_table[i];
         }
-        delete [] role_table;
-        delete [] vote_arr;
-        delete [] respond;
+        if(role_table) delete [] role_table;
+        if(vote_arr) delete [] vote_arr;
+        if(respond) delete [] respond;
     }
     // table size: ROLE_AMO*2
     // index role, row0: player, row1: objective -2 for none/ -1 for use/ 0 ~  for player
