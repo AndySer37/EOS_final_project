@@ -11,6 +11,7 @@
 #include <pthread.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <algorithm>
 
 #include "game_server.h"
 
@@ -49,8 +50,10 @@ const char GAME_STATE_MSG[][30] = {
 };
 
 struct PlayerTable{
-    char username[30];
     int alive;
+    char username[30];
+    int vote_target;
+    int obj_target;
 };
 struct PlayerTable player_tb[MAX_SOCKET_CONNECTION];
 
@@ -67,7 +70,6 @@ volatile unsigned cnt_systick = 0;         // to count system tick timer
 
 game_server *gs;
 string *user_effect_list;
-
 
 
 int socket_init(int *sockfd){
@@ -97,7 +99,7 @@ int socket_init(int *sockfd){
 
 void socket_broadcast(char const *announcement_type, char const *str){
     int i=-1;
-    char buf_snd[100] = {};
+    char buf_snd[255] = {};
     char type_str[20] = {};
 
     if(strcmp(announcement_type, "SYSTEM") == 0 || strcmp(announcement_type, "system") == 0)
@@ -151,10 +153,11 @@ void *socket_rcv_handler(void *indexp){
         confd[userid] = -1;
         pthread_exit(0);
     }else {
-        sprintf(buf_snd, "Welcome [%s] to the game", username);
+        sprintf(buf_snd, "Welcome [%s] to the game id=%d", username, userid);
         socket_broadcast("SYSTEM", buf_snd);
         num_players++;
         player_tb[userid].alive = 1;
+
         sprintf(player_tb[userid].username, "%s", username);
     }
     
@@ -170,6 +173,7 @@ void *socket_rcv_handler(void *indexp){
             sprintf(buf_snd, "[%s] quit the game", username);
             socket_broadcast("SYSTEM", buf_snd);
             confd[userid] = -1;
+            player_tb[userid].alive = 0;
             num_players--; 
             pthread_exit(0);
         }
@@ -183,15 +187,22 @@ void *socket_rcv_handler(void *indexp){
                 send(confd[i], buf_snd, sizeof(buf_snd), 0);
             }
         }else if(game_state == MORNING_VOTE){
-            // --p 0 --vote 2
-            int p, v;
-            char unused_str[20];
-            cout << strlen(buf_rcv) << buf_rcv << endl;
-            sscanf(buf_rcv, "%[^v]--vote %d", unused_str, &v);
-            // sscanf(buf_rcv, "%s %d --vote %d",unused_str, &p, &v);
-            printf("p=%d, s=%s, v=%d\n", userid, unused_str, v);
-        }else if(game_state == NIGHT){
+            int target=0;
+            std::string tmp(buf_rcv);
+            // printf("len=%d, %s\n", (int)strlen(buf_rcv), buf_rcv);
+            std::size_t found = tmp.find("vote");
+            sscanf(&buf_rcv[found], "vote %d", &target);
+            printf("p=%d, target=%d\n", userid, target);
+            player_tb[userid].vote_target = target;
 
+        }else if(game_state == NIGHT){
+            int target=0;
+            std::string tmp(buf_rcv);
+            // printf("len=%d, %s\n", (int)strlen(buf_rcv), buf_rcv);
+            std::size_t found = tmp.find("obj");
+            sscanf(&buf_rcv[found], "obj %d", &target);
+            printf("p=%d, target=%d\n", userid, target);
+            player_tb[userid].obj_target = target;
         }
     }
 }
@@ -223,8 +234,27 @@ int systick_init(timer_t *timer){
     if(ret) perror("timer_settime");
 }
 
-void display_player_tb(void){
-
+// translate voting result or effect result to string array
+void table_to_string(char const *type, string *str_arr){
+    if(strcmp(type, "VOTE") == 0 || strcmp(type, "vote") == 0){
+        int idx=0; 
+        for(int i=0; i < MAX_SOCKET_CONNECTION; i++){
+            if(player_tb[i].vote_target != -1){
+                char buf_vote[20];
+                sprintf(buf_vote, "--p %d --vote %d", i, player_tb[i].vote_target);
+                str_arr[idx++] = string(buf_vote);
+            }
+        }
+    }else if(strcmp(type, "EFFECT") == 0 || strcmp(type, "effect") == 0){
+        int idx=0; 
+        for(int i=0; i < MAX_SOCKET_CONNECTION; i++){
+            if(player_tb[i].obj_target != -1){
+                char buf_obj[20];
+                sprintf(buf_obj, "--p %d --obj %d", i, player_tb[i].obj_target);
+                str_arr[idx++] = string(buf_obj);
+            }
+        }
+    }
 }
 
 void *login_handler(void *socketfd){
@@ -249,11 +279,13 @@ void *login_handler(void *socketfd){
 
 void wait_timer_countdown(unsigned int sec){
     cnt_systick = 0;
-    char buf_snd[100] = {};
+    char buf_snd[255] = {};
 
     while(cnt_systick < sec){
         if(sec - cnt_systick <= GAME_COUNTDOWN_SECOND){
-            sprintf(buf_snd, "%s count down %d sec(s)", GAME_STATE_MSG[game_state], sec - cnt_systick);
+            string tmp=GAME_STATE_MSG[game_state];
+            transform(tmp.begin(),tmp.end(),tmp.begin(),::tolower);
+            sprintf(buf_snd, "%s count down %d sec(s)", tmp.c_str(), sec - cnt_systick);
             socket_broadcast("", buf_snd);
         }
         cnt_systick++;
@@ -296,31 +328,34 @@ int main(int argc, char *argv[]){
         tb[i][1] = DEFAULT;     // obj
         tb[i][2] = 0;           // alive or not
     }
-    do{
-        int role_idx = rand() % ROLE_AMO;
-        // if user exit the game || role repeat
-        if(confd[i] < 1 || tb[role_idx][0] != DEFAULT) continue;
-        tb[role_idx][0] = i;
-        tb[role_idx][1] = DEFAULT;
-        tb[role_idx][2] = 1;
-    }while(i++ < num_conn);
+    for(int i=0; i < num_conn; i++){
+        int role_idx;
+        if(player_tb[i].alive){
+            do{
+                role_idx = rand() % ROLE_AMO;
+            }while(tb[role_idx][0] != DEFAULT);
+            tb[role_idx][0] = i;
+            tb[role_idx][1] = DEFAULT;
+            tb[role_idx][2] = 1;   
+        }
+    }
     gs = new game_server(num_players, tb);
+
 
     // Send player info to each other
     char buf_snd[300] = {0};
     sprintf(buf_snd, "Players infomation\n");
     printf("num= %d\n", num_conn);
     for(int i=0; i < num_conn; i++){
-        if(player_tb[i].alive == 1)
+        if(player_tb[i].alive)
             sprintf(buf_snd, "%sName: %s\tPlayer: %d\n", buf_snd, player_tb[i].username, i);
     }
     socket_broadcast("INFO", buf_snd);
-    // delete[] buf_snd;  
-
+    
+    // Send personal role info to corresponding player
     for (int i = 0;i < ROLE_AMO; i++){
         char buf_snd[30] = {};
-        // if the role exist, send msg to client corresponding to the role.
-        if(gs->role_table[i][2] == 1){
+        if(player_tb[gs->role_table[i][0]].alive && gs->role_table[i][0] != DEFAULT){
             sprintf(buf_snd, "--role %d --p %d --amo %d", i, gs->role_table[i][0], num_players);
             send(confd[gs->role_table[i][0]], buf_snd, sizeof(buf_snd), 0);
             printf("%s\n", buf_snd);
@@ -333,78 +368,53 @@ int main(int argc, char *argv[]){
         game_state = MORNING_CHAT;
         socket_broadcast("SYSTEM", GAME_STATE_MSG[game_state]);
         time(&t_gamestart);
-        wait_timer_countdown(30);
+        wait_timer_countdown(3);
 
         game_state = MORNING_VOTE;
+        for(int i=0; i < MAX_SOCKET_CONNECTION; i++)
+            player_tb[i].vote_target = -1;
         socket_broadcast("SYSTEM", GAME_STATE_MSG[game_state]);
         wait_timer_countdown(30);
 
-        // string str_arr[gs->alive] = {"--p 0 --vote 2", "--p 1 --vote 1", "--p 2 --vote 1"};
-        // gs->vote_update(str_arr);
-        // cout << "\n\nEvent_des : \n\n";
-        // cout << gs->event_des << endl;
-        // cout << "------------------------------\n";
+        // Collect and translate the result of voting and input to game_server object
+        string str_arr1[gs->alive];
+        table_to_string("VOTE", str_arr1);
+        gs->vote_update(str_arr1);
+        cout << "\n\nEvent_des : \n\n";
+        cout << gs->event_des << endl;
+        cout << "------------------------------\n";
+
 
         game_state = NIGHT;
+        for(int i=0; i < MAX_SOCKET_CONNECTION; i++)
+            player_tb[i].obj_target = -1;
         socket_broadcast("SYSTEM", GAME_STATE_MSG[game_state]);
         wait_timer_countdown(45);
         bool check = gs->game_over_check();
         sleep(2);
 
-        // string str_arr1[game_server.alive] = {"--role 0 --obj 10", "--role 1 --obj 7", "--role 2 --obj 1"\
-        //     , "--role 6 --obj 5", "--role 9 --obj -1", "--role 10 --obj 6", "--role 3 --obj 5"\
-        //     , "--role 4 --obj 5", "--role 7 --obj 5", "--role 8 --obj 10", "--role 5 --obj -2"};
-        // game_server.night_update(str_arr1);  
 
+        // Collect and translate the result of effect and input to game_server object
+        string str_arr2[gs->alive];
+        table_to_string("EFFECT", str_arr2);
+        for (int i = 0; i < ROLE_AMO ; i++){
+            cout << i << ": " << gs->respond[i];
+        }
+        if (gs->intimidate_obj >= 0){
+            cout << "Player " << gs->intimidate_obj << " will be prohibited to chat\n";
+        } 
+        cout << "\n\nEvent_des : \n\n";
+        cout << gs->event_des << endl;
+
+        //// check god father alive ////
+        check = gs->godfather_alive_check();
+        if (check){
+            cout << "god father dead.\n";
+            cout << "next god father player : " << gs->role_table[6][0] << endl;
+            cout << "command :--gf\n";
+        }
+        //// check game over ////
+        check = gs->game_over_check();
     }
-
-
-    
-
-    // if(argc != 3)
-    //  errexit("Usage: %s concert console port\n", argv[0]);
-
-    // int** tb = new int*[ROLE_AMO];
-    // for (int i = 0;i < ROLE_AMO; i++){
-    //     tb[i] = new int [3];
-    //     tb[i][0] = i;
-    //     tb[i][1] = DEFAULT;
-    //     tb[i][2] = 1;
-    // }
-    // game_server game_server(11, tb);
-
-    // ////// checking vote ////////
-    // string str_arr[game_server.alive] = {"--p 0 --vote 2", "--p 1 --vote -1", "--p 2 --vote 1"\
-    // , "--p 6 --vote 7", "--p 9 --vote 1", "--p 10 --vote -1", "--p 3 --vote 6"
-    // , "--p 4 --vote 7", "--p 7 --vote 4", "--p 8 --vote 7", "--p 5 --vote 9"};
-    // game_server.vote_update(str_arr);
-    // cout << "\n\nEvent_des : \n\n";
-    // cout << game_server.event_des << endl;
-    // cout << "\n------------------------------\n";
-
-    // ////// checking night_update ////////
-    // game_server.alive ++;
-    // string str_arr1[game_server.alive] = {"--role 0 --obj 10", "--role 1 --obj 7", "--role 2 --obj 1"\
-    // , "--role 6 --obj 5", "--role 9 --obj -1", "--role 10 --obj 6", "--role 3 --obj 5"\
-    // , "--role 4 --obj 5", "--role 7 --obj 5", "--role 8 --obj 10", "--role 5 --obj -2"};
-    // game_server.night_update(str_arr1);   
-    // for (int i = 0; i < ROLE_AMO ; i++){
-    //     cout << i << ": " << game_server.respond[i];
-    // }
-    // if (game_server.intimidate_obj >= 0){
-    //     cout << "Player " << game_server.intimidate_obj << " will be prohibited to chat\n";
-    // } 
-    // cout << "\n\nEvent_des : \n\n";
-    // cout << game_server.event_des << endl;
-
-    // //// check god father alive ////
-    // bool check = game_server.godfather_alive_check();
-    // if (check){
-    //     cout << "god father dead.\n";
-    //     cout << "next god father player : " << game_server.role_table[6][0] << endl;
-    //     cout << "command :--gf\n";
-    // }
-    // //// check game over ////
-    // check = game_server.game_over_check();
     return 0;
 }
