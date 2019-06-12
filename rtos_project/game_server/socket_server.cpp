@@ -48,17 +48,24 @@ const char GAME_STATE_MSG[][30] = {
     "NIGHT",
 };
 
+struct PlayerTable{
+    char username[30];
+    int alive;
+};
+struct PlayerTable player_tb[MAX_SOCKET_CONNECTION];
+
 
 struct sockaddr_in src_addr[MAX_SOCKET_CONNECTION];    //to record client ip
 socklen_t src_len = sizeof(src_addr[0]);
 int server_sockfd = 0;                     // file descriptor of socket server 
 int confd[MAX_SOCKET_CONNECTION] = {0};    // to record file descriptors of socket
 int num_conn = 0;                          // to record how many people are joining in game room
+int num_players = 0;
 timer_t server_timer;                      // timer object of server
 clock_t t_gamestart, t_stamp;
 volatile unsigned cnt_systick = 0;         // to count system tick timer
 
-game_server gs;
+game_server *gs;
 string *user_effect_list;
 
 
@@ -97,6 +104,8 @@ void socket_broadcast(char const *announcement_type, char const *str){
         sprintf(type_str, "\033[0;33m[SYSTEM]\033[0m ");
     else if(strcmp(announcement_type, "ERROR") == 0 || strcmp(announcement_type, "error") == 0)
         sprintf(type_str, "\033[0;31m[SYSTEM]\033[0m ");
+    else if(strcmp(announcement_type, "INFO") == 0 || strcmp(announcement_type, "info") == 0)
+        sprintf(type_str, "[INFO] ");
 
     sprintf(buf_snd, "%s%s", type_str, str);
     cout << buf_snd << endl;
@@ -112,6 +121,7 @@ void shutdown_handler(int signal_num){
     for(int i = 0; i <= num_conn; i++)
         close(confd[i]);
     close(server_sockfd);
+    timer_delete(server_timer); 
      
     // terminate program   
     exit(signal_num);   
@@ -121,7 +131,7 @@ void *socket_rcv_handler(void *indexp){
     int userid = *(int *)indexp;
     char buf_rcv[255] = {};
     char buf_snd[255] = {};
-    char username[20] = {};
+    char username[30] = {};
 
     // Once user login to the game, get the username from clients
     int ret = recv(confd[userid], username, sizeof(username), 0);
@@ -143,6 +153,9 @@ void *socket_rcv_handler(void *indexp){
     }else {
         sprintf(buf_snd, "Welcome [%s] to the game", username);
         socket_broadcast("SYSTEM", buf_snd);
+        num_players++;
+        player_tb[userid].alive = 1;
+        sprintf(player_tb[userid].username, "%s", username);
     }
     
     
@@ -152,11 +165,12 @@ void *socket_rcv_handler(void *indexp){
         bzero(buf_rcv, sizeof(buf_rcv));    // clear rcv buffer
         recv(confd[userid], buf_rcv, sizeof(buf_rcv), 0);
 
-        // User quit
+        // User quit 
         if(strlen(buf_rcv) == 0/* or strcmp("quit",buf_rcv) == 0*/){
             sprintf(buf_snd, "[%s] quit the game", username);
             socket_broadcast("SYSTEM", buf_snd);
             confd[userid] = -1;
+            num_players--; 
             pthread_exit(0);
         }
 
@@ -168,16 +182,15 @@ void *socket_rcv_handler(void *indexp){
                 if(i == userid || confd[i] == 0) continue;    // skip the user who send the msg
                 send(confd[i], buf_snd, sizeof(buf_snd), 0);
             }
-        }
-        else if(game_state == MORNING_EFFECT){
-
-        }
-
-        else if(game_state == MORNING_VOTE){
-
-        }
-
-        else if(game_state == NIGHT){
+        }else if(game_state == MORNING_VOTE){
+            // --p 0 --vote 2
+            int p, v;
+            char unused_str[20];
+            cout << strlen(buf_rcv) << buf_rcv << endl;
+            sscanf(buf_rcv, "%[^v]--vote %d", unused_str, &v);
+            // sscanf(buf_rcv, "%s %d --vote %d",unused_str, &p, &v);
+            printf("p=%d, s=%s, v=%d\n", userid, unused_str, v);
+        }else if(game_state == NIGHT){
 
         }
     }
@@ -208,6 +221,10 @@ int systick_init(timer_t *timer){
     cout << "SysTick start..." << endl;
     ret = timer_settime(timer, 0, &ts, NULL);  
     if(ret) perror("timer_settime");
+}
+
+void display_player_tb(void){
+
 }
 
 void *login_handler(void *socketfd){
@@ -260,9 +277,9 @@ int main(int argc, char *argv[]){
     // Game Login
     game_state = GAME_LOGIN;
     socket_broadcast("SYSTEM", GAME_STATE_MSG[game_state]);
-    while(num_conn < 3){
-        wait_timer_countdown(20);
-        if(num_conn >= 3) break;
+    while(num_players < 3){
+        wait_timer_countdown(10);
+        if(num_players >= 3) break;
         socket_broadcast("SYSTEM", "Not enough players, continue waiting...");
     }
     
@@ -270,34 +287,43 @@ int main(int argc, char *argv[]){
     game_state = GAME_LOADING;
     socket_broadcast("SYSTEM", GAME_STATE_MSG[game_state]);
 
-    // Create game server object
+    // Create role table and assign the roles randomly
     int** tb = new int*[ROLE_AMO];
+    int i=0;
     for (int i = 0;i < ROLE_AMO; i++){
         tb[i] = new int [3];
         tb[i][0] = DEFAULT;     // player
         tb[i][1] = DEFAULT;     // obj
         tb[i][2] = 0;           // alive or not
     }
-
-    int num_players=0, i=0;
     do{
         int role_idx = rand() % ROLE_AMO;
         // if user exit the game || role repeat
-        if(confd[i] == -1 || tb[i][role_idx] == DEFAULT) continue;
+        if(confd[i] < 1 || tb[role_idx][0] != DEFAULT) continue;
         tb[role_idx][0] = i;
         tb[role_idx][1] = DEFAULT;
         tb[role_idx][2] = 1;
-        num_players++;
     }while(i++ < num_conn);
-    gs = game_server(num_players, tb);
+    gs = new game_server(num_players, tb);
 
-    
+    // Send player info to each other
+    char buf_snd[300] = {0};
+    sprintf(buf_snd, "Players infomation\n");
+    printf("num= %d\n", num_conn);
+    for(int i=0; i < num_conn; i++){
+        if(player_tb[i].alive == 1)
+            sprintf(buf_snd, "%sName: %s\tPlayer: %d\n", buf_snd, player_tb[i].username, i);
+    }
+    socket_broadcast("INFO", buf_snd);
+    // delete[] buf_snd;  
+
     for (int i = 0;i < ROLE_AMO; i++){
         char buf_snd[30] = {};
         // if the role exist, send msg to client corresponding to the role.
-        if(gs.role_table[i][2] == 1){     
-            // sprintf(buf_snd, "--role %d --p %d --amo %d", i, gs.role_table[i][1], num_players);
-            // send(confd[gs.role_table[i][1]], buf_snd, sizeof(buf_snd), 0);
+        if(gs->role_table[i][2] == 1){
+            sprintf(buf_snd, "--role %d --p %d --amo %d", i, gs->role_table[i][0], num_players);
+            send(confd[gs->role_table[i][0]], buf_snd, sizeof(buf_snd), 0);
+            printf("%s\n", buf_snd);
         }
     }
 
@@ -307,16 +333,29 @@ int main(int argc, char *argv[]){
         game_state = MORNING_CHAT;
         socket_broadcast("SYSTEM", GAME_STATE_MSG[game_state]);
         time(&t_gamestart);
-        wait_timer_countdown(60);
+        wait_timer_countdown(30);
 
         game_state = MORNING_VOTE;
         socket_broadcast("SYSTEM", GAME_STATE_MSG[game_state]);
         wait_timer_countdown(30);
 
+        // string str_arr[gs->alive] = {"--p 0 --vote 2", "--p 1 --vote 1", "--p 2 --vote 1"};
+        // gs->vote_update(str_arr);
+        // cout << "\n\nEvent_des : \n\n";
+        // cout << gs->event_des << endl;
+        // cout << "------------------------------\n";
+
         game_state = NIGHT;
         socket_broadcast("SYSTEM", GAME_STATE_MSG[game_state]);
         wait_timer_countdown(45);
+        bool check = gs->game_over_check();
         sleep(2);
+
+        // string str_arr1[game_server.alive] = {"--role 0 --obj 10", "--role 1 --obj 7", "--role 2 --obj 1"\
+        //     , "--role 6 --obj 5", "--role 9 --obj -1", "--role 10 --obj 6", "--role 3 --obj 5"\
+        //     , "--role 4 --obj 5", "--role 7 --obj 5", "--role 8 --obj 10", "--role 5 --obj -2"};
+        // game_server.night_update(str_arr1);  
+
     }
 
 
@@ -367,5 +406,5 @@ int main(int argc, char *argv[]){
     // }
     // //// check game over ////
     // check = game_server.game_over_check();
-
+    return 0;
 }
