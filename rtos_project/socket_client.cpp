@@ -30,10 +30,11 @@ char buf_snd[255] = {0};                // temporary key in buffer
 volatile bool flag_shutdown = false;    
 
 Role *role;
-
+bool game_start = false;
 void *recv_handler(void *arg){
-    char buf_rcv[300]= {};
+    char buf_rcv[255]= {};
     while(1){
+        memset(buf_rcv, 0, sizeof(buf_rcv));
         int ret = recv(sockfd, buf_rcv, sizeof(buf_rcv), 0);
         if(ret < 0){
             perror("recv");
@@ -50,10 +51,11 @@ void *recv_handler(void *arg){
             close(sockfd);
             flag_shutdown = true;
             pthread_exit(0);
-        }else if(strstr(buf_snd, "--")){            // if receive '--' command
+        }else if(strstr(buf_rcv, "--")){            // if receive '--' command
             int r, p, amo;
             sscanf(buf_rcv, "--role %d --p %d --amo %d", &r, &p, &amo);
             role = new Role(sockfd, r, p, amo);
+            game_start = true;
             pthread_exit(0);
         }else{
             printf("%c[2K\r", 27);
@@ -122,7 +124,7 @@ int main(int argc,char **argv){
     }
 
     // Continue typing
-    while(!flag_shutdown){
+    while(!flag_shutdown && !game_start){
         char x,y,z;
         x = getch();
 
@@ -171,6 +173,8 @@ int main(int argc,char **argv){
             printf("%c", x);
             sprintf(buf_snd, "%s%c", buf_snd, x);
         }
+        
     }
+    role->save_ptr(role);
     return 0;
 }
