@@ -270,7 +270,7 @@ void table_to_string(char const *type, string *str_arr, int arr_size){
         }
     }
     for(int i=0; i<arr_size;i++)
-        printf("%d %s\n",i, str_arr[i].c_str());
+        printf("%s\n", str_arr[i].c_str());
 }
 
 void *login_handler(void *socketfd){
@@ -417,6 +417,7 @@ int main(int argc, char *argv[]){
 
         // Collect and translate the result of effect and input to game_server object
         string str_arr2[gs->alive];
+        cout << "After voting gamer : " << gs->alive << endl;
         table_to_string("EFFECT", str_arr2, gs->alive);
         gs->night_update(str_arr2);   
         for (int i = 0; i < ROLE_AMO ; i++)

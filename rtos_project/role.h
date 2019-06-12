@@ -148,6 +148,7 @@ void Role::save_ptr(Role *p){
                 break;
             case 1:
                 vote_period();
+                break;
             case 2:
                 night_func();
                 break;
@@ -155,12 +156,13 @@ void Role::save_ptr(Role *p){
         }
     }
     cout << "You are dead !!\n";
+    while(1){}
 }
 Role::Role(int con, int role, int player, int player_amount){
     this->night = 0;
     this->state_check = 0;
     this->connfd = con;
-    this->Role_id = role;
+    this->Role_id = role + 1;
     this->player = player;
     this->player_amount = player_amount;
     this->alive = true;
@@ -275,7 +277,7 @@ void Role::night_func(){
                     break;
             }
             ostringstream ss;
-            ss << "--role " << Role_id << " --obj " << player_obj;
+            ss << "--role " << (Role_id - 1) << " --obj " << player_obj;
             if ((n = write(connfd, ss.str().c_str(), strlen(ss.str().c_str()))) == -1)
                 errexit("Error: write()\n");  
         }
@@ -425,15 +427,18 @@ void *connection_handler(void *conn){
             sscanf(rcv, "--death %d --true-role %d", &death, &_role);
             ptr->alive_list[death] = false;
             if (death == ptr->player){
-                ptr->alive == false;
+                ptr->alive = false;
             }
         }    
-        else if(strstr(rcv, "--death")){ 
+        else if(strstr(rcv, "--death ")){ 
+            cout << "SOME ONE IS DEAD======================================\n";
             int death;
             sscanf(rcv, "--death %d", &death);
             ptr->alive_list[death] = false;
+            cout << death << " " << ptr->player << endl;
             if (death == ptr->player){
-                ptr->alive == false;
+                cout << "YOU FUCKING DEAD\n";
+                ptr->alive = false;
             }
         }    
         /////////////////////
