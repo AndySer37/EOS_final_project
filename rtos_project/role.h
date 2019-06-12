@@ -67,18 +67,20 @@ class Role{
     int Role_id;
     int player;
     int player_obj;
-    bool using_skill;
     int state_check;            // Day chatting, voting, night, night ending
     int voting;
-    bool *alive_list;
     int player_amount;
     int group;
     int ability_count;
     int connfd;
     int n;
-    bool alive;
     int night;
+
+    bool alive;
     bool chating_ability;
+    bool *alive_list;
+    bool using_skill;
+
     char snd[BUFSIZE], rcv[BUFSIZE];
     Role *cls_ptr;
     pthread_t thread_id;
@@ -94,8 +96,43 @@ class Role{
     void save_ptr(Role*);
     bool check_obj(string);
     int check_voting(string);
+    void game_start_update(string);
 
 };
+void Role::game_start_update(string str){
+    stringstream in_ss;
+    in_ss << str;
+    string n;
+    int p;
+    char c;
+    char line[100];
+    char *pch, *pch1 ,*playerp;
+    int count = 0;
+    while(count != 1){
+        in_ss.get(c);
+        if(c == '\n')
+            count += 1;
+    }
+
+
+    for (int i = 0; i < player_amount; i++){
+        in_ss.getline(line,100); 
+        n = "";
+        char *cstr = new char[string(line).length() + 1];
+        strcpy(cstr, line);
+        pch = strstr (cstr,"Name: ");
+        pch1 = strstr (cstr,"Player: ");
+        for (int j = 0; j < (pch1 - pch - 7) ; j++){
+            n += *(pch + 6 + j);
+        }
+        playerp = (pch1 + 8);
+        p = atoi(playerp);
+
+        // cout << "N: " << n << " id: " << p << endl;
+    }    
+
+
+}
 void Role::save_ptr(Role *p){
     cls_ptr = p;
     // cout <<  " " << cls_ptr << endl;
@@ -284,7 +321,6 @@ int Role::check_voting(string str){
 
     if (strstr (cstr,"--vote ")){
         sscanf(cstr, "--vote %d", &num);
-        cout << "NUM : " << num << endl;
         if(num == -1){
             return -1;
         }
@@ -335,8 +371,7 @@ string Role::input(){
         }
         else if(x == 8 || x == 127){
             printf("\b \b");
-            fflush(stdout);
-            sprintf(buf_snd_role, "%s\b \b", buf_snd_role);
+            buf_snd_role[strlen(buf_snd_role) - 1] = '\0';
         }
         else if(x == 10){
             printf("%c", x);
@@ -383,16 +418,16 @@ void *connection_handler(void *conn){
             ptr->state_check = 1;
         }
 
-        if(strstr(rcv, "--death")){ 
-            int death;
-            sscanf(rcv, "--death %d", &death);
-            ptr->alive_list[death] = false;
-        }
         if(strstr(rcv, "--true-role")){ 
             int death, _role;
             sscanf(rcv, "--death %d --true-role %d", &death, &_role);
             ptr->alive_list[death] = false;
-        }        
+        }    
+        else if(strstr(rcv, "--death")){ 
+            int death;
+            sscanf(rcv, "--death %d", &death);
+            ptr->alive_list[death] = false;
+        }    
         /////////////////////
         // system("clear");
 
