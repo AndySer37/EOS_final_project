@@ -35,16 +35,16 @@ int main(int argc, char** argv) {
     //     connfd = -1;
     // }
     
-    initial();
+    // initial();
     Windows w;
     bool sth = 1;
     int i=0;
     w.chatroom();
     while(sth){
-        w.recv_msg(w.input(sth));
+        w.recv_msg(0, w.input(sth));
     }
     
-    endwin();
+    // endwin();
 
     // if(connfd != -1)
     //     close(connfd);
