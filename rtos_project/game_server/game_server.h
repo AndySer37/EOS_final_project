@@ -55,6 +55,7 @@ class game_server{
     int vote_death;  // if -1: nobody death when voting
     int* vote_arr;      // store the vote // index: player 
     int intimidate_obj;
+    int gf_role;
     string event_des;   // for voting, night ending and game ending
     string* respond;    // for each player's respond for night ending
     vector < death_info > death_list;
@@ -70,6 +71,7 @@ bool game_server::godfather_alive_check(){
     /// if godfather is dead
     if(role_table[6][2] == 0){
         if(role_table[7][2] == 1){          /// godfather and Intimidate switch
+            gf_role = 7;
             for(int i = 0; i < 3; i++){
                 int buf = role_table[6][i];
                 role_table[6][i] = role_table[7][i];
@@ -78,6 +80,7 @@ bool game_server::godfather_alive_check(){
             return true;
         }
         if(role_table[8][2] == 1){          /// godfather and streetwalker switch 
+            gf_role = 8;
             for(int i = 0; i < 3; i++){
                 int buf = role_table[6][i];
                 role_table[6][i] = role_table[8][i];

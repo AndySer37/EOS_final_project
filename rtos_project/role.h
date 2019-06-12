@@ -80,7 +80,7 @@ class Role{
     int n;
     int night;
     // int role;
-
+    bool game_over;
     bool alive;
     bool chating_ability;
     bool *alive_list;
@@ -159,7 +159,7 @@ void Role::save_ptr(Role *p){
         perror("could not create thread");
         return;
     }
-    while(alive){
+    while(alive && !game_over){
         switch(state_check){
             case 0:
                 day_func();
@@ -170,13 +170,19 @@ void Role::save_ptr(Role *p){
             case 2:
                 night_func();
                 break;
-            //case 3:
+            case 3:
+                day_func();
+                break;                
         }
     }
-    // cout << "You are dead !!\n";
-    ss_win << "You are dead !!\n";
-    w.recv_msg(ss_win);
-    while(1){}
+    if (!alive){
+        // cout << "You are dead !!\n";
+        ss_win << "You are dead !!\nNow you can chat with other death.";
+        w.recv_msg(ss_win);
+    }
+    while(!game_over){
+        day_func();
+    }
 }
 Role::Role(int con, int role, int player, int player_amount){
     this->night = 0;
@@ -188,6 +194,7 @@ Role::Role(int con, int role, int player, int player_amount){
     this->alive = true;
     this->chating_ability = true;
     this->using_skill = false;
+    this->game_over = false;
     this->alive_list = new bool(player_amount);
     for (int i = 0 ; i < player_amount ; i++){
         alive_list[i] = true;
@@ -256,7 +263,10 @@ int Role::vote_period(){
 void Role::day_func(){
     string sent;
     // cout << "============= Day Time =============\n";
-    ss_win << "============= Day Time =============\n";
+    if(alive)
+        ss_win << "============= Day Time =============\n";
+    else
+        ss_win << "============= Death Zone =============\n";
     w.recv_msg(ss_win);
     if(chating_ability){
         while(state_check == 0){
@@ -453,6 +463,8 @@ void *connection_handler(void *conn){
     int n;
     char *c_ptr;
     char rcv[BUFSIZE];
+    int death, _role;
+    stringstream ss_win_thread;
     while(1){
         memset(rcv, 0, BUFSIZE);
         if((n = read(ptr->connfd, rcv, BUFSIZE)) == -1)
@@ -460,12 +472,21 @@ void *connection_handler(void *conn){
         ///////////////////// 
 
         if(strstr(rcv, "MORNING_EFFECT")){
-
+            if(death == ptr->player){
+                ptr->chating_ability = true;
+            }
+            else{
+                ptr->chating_ability = false;
+            }
+            ptr->state_check = 3;
         }
         else if(strstr(rcv, "MORNING_CHAT")){
             ptr->state_check = 0;         
         }
         else if(strstr(rcv, "NIGHT")){
+            if(!(ptr->chating_ability)){
+                ptr->chating_ability = true;
+            }
             ptr->state_check = 2;      
         }
         else if(strstr(rcv, "MORNING_VOTE")){
@@ -473,7 +494,6 @@ void *connection_handler(void *conn){
         }
 
         if(strstr(rcv, "--true-role")){ 
-            int death, _role;
             sscanf(rcv, "--death %d --true-role %d", &death, &_role);
             ptr->alive_list[death] = false;
             if (death == ptr->player){
@@ -496,7 +516,26 @@ void *connection_handler(void *conn){
                 // w.recv_msg(ss_win);
                 ptr->alive = false;
             }
-        }    
+        }
+        if (strstr(rcv, "--gf")){
+            ss_win_thread.str("");
+            ss_win_thread << "God Father is dead, So you switch to Godfather.\nNow you can kill a player at night.";
+            w.recv_msg(ss_win_thread); 
+            ptr->Role_id = 7;       
+        } 
+        if (strstr(rcv, "--game-over")){
+            ss_win_thread.str("");
+            ss_win_thread << "The Game is Over.";
+            w.recv_msg(ss_win_thread); 
+            ptr->game_over = true;   
+        } 
+        if (strstr(rcv, "--quiet")){
+            ss_win_thread.str("");
+            ss_win_thread << "You are threatened!!\nCan't talk at morning!!";
+            w.recv_msg(ss_win_thread); 
+            ptr->chating_ability = false;
+        } 
+
         /////////////////////
         // system("clear");
 
