@@ -526,9 +526,11 @@ int main(int argc, char *argv[]){
         //// check game over ////
         if (gs->game_over_check()){
             socket_broadcast("", (gs->event_des).c_str());
+            usleep(1000);
             socket_broadcast("", "--game-over");
             break;
         }
     }
+    while(1){}
     return 0;
 }
