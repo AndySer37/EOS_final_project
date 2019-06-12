@@ -28,7 +28,7 @@ typedef struct sockaddr *sockaddrp;
 int sockfd;
 char buf_snd[255] = {0};                // temporary key in buffer
 volatile bool flag_shutdown = false;    
-
+string game_info = "";
 Role *role;
 bool game_start = false;
 void *recv_handler(void *arg){
@@ -51,10 +51,15 @@ void *recv_handler(void *arg){
             close(sockfd);
             flag_shutdown = true;
             pthread_exit(0);
+        }else if(strstr(buf_rcv, "Players infomation")){      // if shutdown
+            printf("%s\n", buf_rcv);
+            game_info = string(buf_rcv);
+            flag_shutdown = true;
         }else if(strstr(buf_rcv, "--")){            // if receive '--' command
             int r, p, amo;
             sscanf(buf_rcv, "--role %d --p %d --amo %d", &r, &p, &amo);
             role = new Role(sockfd, r, p, amo);
+            role->game_start_update(game_info);
             game_start = true;
             pthread_exit(0);
         }else{
@@ -156,8 +161,8 @@ int main(int argc,char **argv){
         }
         else if(x == 8 || x == 127){
             printf("\b \b");
-            fflush(stdout);
-            sprintf(buf_snd, "%s\b \b", buf_snd);
+            buf_snd[strlen(buf_snd) - 1] = '\0';
+
         }
         else if(x == 10){
             printf("%c", x);
