@@ -260,6 +260,20 @@ void systick_handler(int iSignNo){
     cnt_systick++;
 }
 
+struct sigaction SA_SIGPROF;
+struct itimerval timer;
+int systick_init2(void){
+    
+    memset(&SA_SIGPROF, 0, sizeof(SA_SIGPROF));
+    SA_SIGPROF.sa_handler = &systick_handler;
+    sigaction(SIGPROF, &SA_SIGPROF, NULL);
+    timer.it_interval.tv_sec = 1;      // the spacing time  
+    timer.it_interval.tv_usec = 0;  
+    timer.it_value.tv_sec = 0;         // the delay time start
+    timer.it_value.tv_usec = 0;
+    setitimer(ITIMER_PROF, &timer, NULL);
+    return 0;
+}  
 
 int systick_init(timer_t *timer){
     struct sigevent evp;  
@@ -369,7 +383,8 @@ int main(int argc, char *argv[]){
 
     pthread_t tid;
     srand(time(NULL));
-    if(systick_init(&server_timer) < 0) return -1;
+    if(systick_init2() < 0) return -1; 
+    // if(systick_init(&server_timer) < 0) return -1;
     if(socket_init(&server_sockfd) < 0) return -1;
     // User login handler            
     if(pthread_create(&tid, NULL, login_handler, (void*) &server_sockfd) < 0){
