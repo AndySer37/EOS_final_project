@@ -124,7 +124,7 @@ void Role::game_start_update(string str){
 void Role::save_ptr(Role *p){
 
     cls_ptr = p;
-    w.set_statr_ptr(state_check);
+    w.set_statr_ptr(state_check, player);
 
     ss_win.str("");
     ss_win << "You are player " << player << endl;
@@ -142,7 +142,7 @@ void Role::save_ptr(Role *p){
         perror("could not create thread");
         return;
     }
-    sleep(1);
+    // sleep(1);
     while(alive && !game_over){
         switch(state_check){
             case 0:
@@ -255,9 +255,7 @@ void Role::day_func(){
         ss_win << "============= Day Time =============\n";
     else
         ss_win << "============= Death Zone =============\n";
-    // sleep(1);
     w.recv_msg(ss_win);
-    // sleep(1);
     while(state_check == 0 && !game_over){
         sent = w.input();
         if(chating_ability){
