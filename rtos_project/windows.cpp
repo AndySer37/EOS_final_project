@@ -36,8 +36,10 @@ int main(int argc, char** argv) {
     // }
     
     Windows w;
+    stringstream ss;
     while(1){
-        w.recv_msg(0, w.input());
+        ss<<w.input()<<endl;
+        w.recv_msg(0, ss);
     }
     
     // endwin();

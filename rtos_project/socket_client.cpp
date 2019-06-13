@@ -75,19 +75,6 @@ void *recv_handler(void *arg){
     }
 }
 
-int getch1(void){
-    int ch;
-    struct termios oldt;
-    struct termios newt;
-    tcgetattr(STDIN_FILENO, &oldt); /*store old settings */
-    newt = oldt; /* copy old settings to new settings */
-    newt.c_lflag &= ~(ICANON | ECHO); /* make one change to old settings in new settings */
-    tcsetattr(STDIN_FILENO, TCSANOW, &newt); /*apply the new settings immediatly */
-    ch = getchar(); /* standard getchar call */
-    tcsetattr(STDIN_FILENO, TCSANOW, &oldt); /*reapply the old settings */
-    return ch; /*return received char */
-}
-
 int main(int argc,char **argv){
     srand(time(NULL));
     if(argc != 3){
@@ -135,59 +122,10 @@ int main(int argc,char **argv){
         perror("pthread_create");
         return -1;
     }
-
-    int x;
+    
     // Continue typing
     while(!flag_shutdown && !game_start){
-        // if(kbhit()){
-        //     x=getch();
-        usleep(50000);
-        // char x,y,z;
-        // x = getch1();
-
-        // if (x == 27){
-        //     y = getch1();
-        //     z = getch1();
-        //     if (y == 91){
-        //         switch (z){
-        //             case 65:
-        //                 // printf("up");
-        //                 // sprintf(buf_snd, "up");
-        //                 break;
-        //             case 66:
-        //                 // printf("down");
-        //                 // sprintf(buf_snd, "down");
-        //                 break;
-        //             // case 67:
-        //             //     printf("%c[2K\r", 27);
-        //             //     printf("right\r");
-        //             //     break;
-        //             // case 68:
-        //             //     printf("%c[2K\r", 27);
-        //             //     printf("left\r");
-        //             //     break;
-        //         }
-        //     }
-        // }
-        // else if(x == 8 || x == 127){
-        //     // printf("\b \b");
-        //     buf_snd[strlen(buf_snd) - 1] = '\0';
-        // }
-        // else if(x == 10){
-        //     // printf("%c", x);
-        //     // printf("%s\n", buf_snd);
-        //     int ret = send(sockfd, buf_snd, strlen(buf_snd), 0);
-        //     if(0 > ret){
-        //         perror("send");
-        //         return -1;
-        //     }
-        //     memset(buf_snd, 0, sizeof(buf_snd));
-        // }
-        // else if(x != -1){
-        //     // printf("%c", x);
-        //     sprintf(buf_snd, "%s%c", buf_snd, x);
-        // }
-        
+        usleep(50000);       
     }
     role->save_ptr(role);
     return 0;
