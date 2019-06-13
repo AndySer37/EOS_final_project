@@ -1,8 +1,10 @@
 CC = g++
 TARGETS = socket_client windows game_server/gameserver
 
-all: $(TARGETS)
-
+all:
+	$(CC) -std=c++11 -o game_server/gameserver game_server/socket_server.cpp -lpthread -lrt
+	$(CC) -std=c++11 -o socket_client socket_client.cpp  -lpthread -lrt -lncurses
+	$(CC) -std=c++11 -o windows windows.cpp  -lpthread -lrt -lncurses
 # $(OBJS).o: $(OBJS).c
 # 	$(CC) -c -o $@ $<
 game_server/gameserver: game_server/socket_server.cpp

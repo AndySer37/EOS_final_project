@@ -4,13 +4,9 @@
 #include <sstream>
 #include <ncurses.h>
 #include <string>
+#include <unistd.h>
 #include <time.h>
 using namespace std;
-
-void initial()
-{
-
-}
 
 int kbhit()
 {
@@ -207,8 +203,17 @@ void Chatroom::output_reflesh(int w, string str){
             wrefresh(sysmsg_box);
             touchwin(sysmsg);
             getyx(sysmsg, y, x);
+            if(str.substr(0,8) == "(SYSTEM)"){
+                wattron(sysmsg,COLOR_PAIR(3)|A_BOLD);
+            }
+            else{
+                wattron(sysmsg,COLOR_PAIR(7));
+            }
             // str +="\n";
             mvwprintw(sysmsg, y, 0, str.c_str());
+            if(str.substr(0,8) == "(SYSTEM)"){
+                wattroff(sysmsg,COLOR_PAIR(3)|A_BOLD);
+            }
             wrefresh(sysmsg);
             touchwin(chat_i_box);
             wrefresh(chat_i_box);
@@ -231,15 +236,16 @@ class Windows
 public:
     Windows();
     ~Windows();
-    void chatroom();
     string input();
     void recv_msg(int , string );
     void recv_msg(int , stringstream &);
 private:
     Chatroom *chat_room;
+    pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 };
 
 Windows::Windows(){
+    pthread_mutex_init (&mutex, NULL);
     initscr();
     cbreak();       //unblocking keyboard intupt
     start_color();
@@ -260,8 +266,9 @@ Windows::Windows(){
     intrflush(stdscr,FALSE);
     keypad(stdscr,TRUE);
     refresh();
-    chatroom();
+    chat_room = new Chatroom();
 }
+
 
 Windows::~Windows(){
     nocbreak();
@@ -271,9 +278,6 @@ Windows::~Windows(){
     endwin();
 }
 
-void Windows::chatroom(){
-    chat_room = new Chatroom();
-}
 
 
 string Windows::input(){
@@ -302,7 +306,9 @@ string Windows::input(){
 }
 
 void Windows::recv_msg(int w, string msg){
+    pthread_mutex_lock( &mutex ); // 上鎖 
     chat_room->recv_msg(w, msg);
+    pthread_mutex_unlock( &mutex ); // 解鎖
 }
 void Windows::recv_msg(int w, stringstream &ss){
     chat_room->recv_msg(w, ss.str());

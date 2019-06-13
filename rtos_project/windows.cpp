@@ -35,9 +35,7 @@ int main(int argc, char** argv) {
     //     connfd = -1;
     // }
     
-    // initial();
     Windows w;
-    w.chatroom();
     while(1){
         w.recv_msg(0, w.input());
     }

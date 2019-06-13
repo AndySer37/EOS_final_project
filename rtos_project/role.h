@@ -268,13 +268,16 @@ int Role::vote_period(){
     }
 }
 void Role::day_func(){
+    // sleep(1);
     string sent;
     // cout << "============= Day Time =============\n";
     if(alive)
         ss_win << "============= Day Time =============\n";
     else
         ss_win << "============= Death Zone =============\n";
+    sleep(1);
     w.recv_msg(1, ss_win);
+    // sleep(1);
     while(state_check == 0){
         sent = w.input();
         if(chating_ability){
@@ -503,12 +506,12 @@ void *connection_handler(void *conn){
         // system("clear");
 
         // cout << rcv << endl;
-        ss_win << rcv << endl;
-        if(ss_win.str()[0] == '['){
-            w.recv_msg(1, ss_win);
+        ss_win_thread << rcv << endl;
+        if(ss_win_thread.str()[0] == '['){
+            w.recv_msg(0, ss_win_thread);
         }
         else{
-            w.recv_msg(1, ss_win);
+            w.recv_msg(1, ss_win_thread);
         }
         if (strlen(buf_snd_role) != 0){
             // cout << buf_snd_role;
