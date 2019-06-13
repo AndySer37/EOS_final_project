@@ -1,11 +1,10 @@
 CC = g++
-OBJS = socket_server.cpp
-TARGETS = game_server
+TARGETS = socket_server
 
 all: $(TARGETS)
 
-game_server: $(OBJS)
-	$(CC) -std=c++11 -o $@ $^ -lpthread -lrt
+socket_server:
+	$(CC) -std=c++11 -o $@ $@.cpp -lpthread -lrt
 
 clean:
 # 	rm *.o
