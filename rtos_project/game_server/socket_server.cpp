@@ -106,19 +106,27 @@ void socket_broadcast(char const *announcement_type, char const *str){
     char type_str[20] = {};
 
     if(strcmp(announcement_type, "SYSTEM") == 0 || strcmp(announcement_type, "system") == 0)
-        sprintf(type_str, "(SYSTEM) ");     // sprintf(type_str, "\033[0;33m[SYSTEM]\033[0m ");
+        sprintf(type_str, "(s)(3)[SYSTEM] ");     // sprintf(type_str, "\033[0;33m[SYSTEM]\033[0m ");
     else if(strcmp(announcement_type, "ERROR") == 0 || strcmp(announcement_type, "error") == 0)
-        sprintf(type_str, "(ERROR) ");      // sprintf(type_str, "\033[0;31m[SYSTEM]\033[0m ");
+        sprintf(type_str, "(s)(1)[ERROR] ");      // sprintf(type_str, "\033[0;31m[SYSTEM]\033[0m ");
     else if(strcmp(announcement_type, "INFO") == 0 || strcmp(announcement_type, "info") == 0)
-        sprintf(type_str, "(INFO) ");
+        sprintf(type_str, "(s)(2)[INFO] ");
 
     sprintf(buf_snd, "%s%s", type_str, str);
     cout << buf_snd << endl;
     for(int i = 0; i <= num_conn; i++){
         send(confd[i], buf_snd, sizeof(buf_snd), 0);
+        usleep(1000);
     }
 }
 
+int send_by_role(int role, char const *str){
+
+}
+
+int send_by_playerid(int playerid, char const *str){
+    send(confd[playerid], str, sizeof(str), 0);
+}
 
 void shutdown_handler(int signal_num){
     game_state = GAME_SHUTDOWN;
@@ -202,11 +210,12 @@ void *socket_rcv_handler(void *indexp){
 
         if(game_state == MORNING_CHAT || game_state == GAME_LOGIN){
             // broadcast to each other
-            sprintf(buf_snd, "[%s]: %s", username, buf_rcv);
+            sprintf(buf_snd, "(p)[%s]: %s", username, buf_rcv);
             cout << buf_snd << endl;
             for(int i = 0; i <= num_conn; i++){
                 // if(i == userid || confd[i] == 0) continue;    // skip the user who send the msg
                 send(confd[i], buf_snd, sizeof(buf_snd), 0);
+                usleep(1000);
             }
         }else if(game_state == MORNING_VOTE && player_tb[userid].alive){
             int target= -1;
@@ -473,8 +482,11 @@ int main(int argc, char *argv[]){
             player_tb[gs->vote_death].alive = 0;    //update player tb
         }
         if (gs->game_over_check()){
-            socket_broadcast("", (gs->event_des).c_str());
-            socket_broadcast("", "--game-over");
+            char buf_snd[50];
+            sprintf(buf_snd, "%s\n%s", (gs->event_des).c_str(), "--game-over");
+            socket_broadcast("", buf_snd);
+            // socket_broadcast("", (gs->event_des).c_str());
+            // socket_broadcast("", "--game-over");
             break;
         }
 
@@ -536,9 +548,12 @@ int main(int argc, char *argv[]){
         }
         //// check game over ////
         if (gs->game_over_check()){
-            socket_broadcast("", (gs->event_des).c_str());
-            usleep(1000);
-            socket_broadcast("", "--game-over");
+            char buf_snd[50];
+            sprintf(buf_snd, "%s\n%s", (gs->event_des).c_str(), "--game-over");
+            socket_broadcast("", buf_snd);
+            // socket_broadcast("", (gs->event_des).c_str());
+            // usleep(1000);
+            // socket_broadcast("", "");
             break;
         }
     }
