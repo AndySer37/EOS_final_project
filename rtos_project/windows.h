@@ -106,6 +106,7 @@ private:
     Player_info p[11];
     int *state;
     int self_id;
+    int last_state = -1;
     string role_tab_info[5];
 };
 
@@ -333,13 +334,14 @@ void Windows::output_refresh(int w, string str){
 
 
 string Windows::input(){
-    int x, last_state;
+    int x;
     msg.clear();
-    if(state != NULL){
-        last_state = *state;
-    }
+    // if(state != NULL){
+    //     last_state = *state;
+    // }
     while(1){
         if((state != NULL)&&(last_state != *state)){
+            last_state = *state;
             msg.clear();
             char_intput('\r');
             return "";
@@ -352,7 +354,12 @@ string Windows::input(){
                 return "";
             }
             else if(x == '\r'){
-                return char_intput(x);
+                if(last_state == 1){
+                    return (string("--vote ") + char_intput(x));        
+                }
+                else{
+                    return char_intput(x);
+                }
             }
             else if(x == '\t'){
                 if(is_game_start){
@@ -381,12 +388,27 @@ string Windows::char_intput(int c){
     }
     else if(c == '\r'){
         wclear(chat_i);
-        if(is_name_set){
-            mvwprintw(chat_i,2,0,"Say :");
-        }
-        else{
-            mvwprintw(chat_i,2,0,"Enter your name :");
-        }
+        // if(is_name_set){
+            switch(last_state){
+                case -1:
+                    mvwprintw(chat_i,2,0,"Enter your name :");
+                    break;
+                case 0:
+                    mvwprintw(chat_i,2,0,"Say :");
+                    break;
+                case 1:
+                    mvwprintw(chat_i,2,0,"Vote :");
+                    break;
+                case 2:
+                    mvwprintw(chat_i,2,0,"Do :");
+                    break;
+                default:
+                    break;
+            }
+        // }
+        // else{
+        //     mvwprintw(chat_i,2,0,"Enter your name :");
+        // }
     }
     else{
         wprintw(chat_i, "%c", c);
