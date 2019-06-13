@@ -116,7 +116,6 @@ void Role::game_start_update(string str){
         }
         playerp = (pch1 + 8);
         p = atoi(playerp);
-        alive_list[p] = true;
         w.player_info_refresh(1, p, 0, true);
         // cout << "N: " << n << " id: " << p << endl;
     }    
