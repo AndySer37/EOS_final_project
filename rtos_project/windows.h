@@ -8,6 +8,41 @@
 #include <time.h>
 using namespace std;
 
+const char GAME_STATE_MSG[][30] = {
+    "GAME_IDLE",
+    "GAME_LOADING",
+    "GAME_LOGIN",
+    "GAME_AWARD",
+    "GAME_COMPUTATION",
+    "GAME_SERVER_SHUTDOWN",
+    "MORNING_CHAT",
+    "MORNING_VOTE",
+    "MORNING_EFFECT",
+    "NIGHT",
+};
+const string role_name[] = {"???", "police", "detective", "bodyguard", "doctor", "spy", "Retired soldier"\
+                    , "Godfather", "Intimidate", "streetwalker", "survivor", "Serial killer"};
+const string group_name[] = {"Town", "Mafia", "Neutral/Kindness", "Neutral/Evil"};
+const string winning_cond[] = {
+    "Put all the criminal to Death!", 
+    "Kill all the people live in the TOWN and the person who opposite you!",
+    "Be alive until the game end",
+    "Kill all the people in the game"
+};
+const string role_func[] = {
+    "You can survey identity of a person at night either suspicious or not.", 
+    "You can survey identity of a person according to the character.",
+    "You can protect a person at night.",
+    "You can rescue a person who is on the brink of death.",
+    "You can track a person at night.",
+    "You have totally twice chance to be on the alert at night\nand you will kill all the person who visit you instead of serial killer.",
+    "You can kill a person at night.",
+    "You can restrict a person not to talk at morning.",
+    "You can restrict a person's action at night.",
+    "You have four bulletproof vest which can protect you from death.",
+    "You can kill a person at night."
+};
+
 int kbhit()
 {
     int ch = getch();
@@ -20,18 +55,20 @@ int kbhit()
     }
 }
 
-
-class Player
+class Player_info
 {
 public:
-    Player(){
-        name = "123";
+    Player_info(){
+        is_playing = false;
+        is_alive = true;
+        name = "";
+        id = role_id = 0;
     }
-    int alive;
-    int show_role;
+    int id;
+    int role_id;
+    bool is_alive;
+    bool is_playing;
     string name;
-    int Role_id;
-private:
 };
 
 class Windows
@@ -39,15 +76,17 @@ class Windows
 public:
     Windows();
     ~Windows();
-    // void output_reflesh();
     void initial();
-    void output_reflesh(int ,string );
-    void playerlist_reflesh();
+    void player_info_refresh(int ,int, int, bool );
+    void output_refresh(int ,string );
+    void playerlist_refresh();
+    void lobby_refresh(int , string );
     void setname(string );
-    void msg_filter(int , string);
-    void recv_msg(int , stringstream &);
+    void msg_filter(int , string );
+    void recv_msg(int , stringstream & );
+    bool is_player_alive(int i){ return p[i].is_alive; }
     string input();
-    string char_intput(int c);
+    string char_intput(int );
 
 private:
     pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -59,18 +98,17 @@ private:
     bool is_name_set = false;
 
     string msg;
-    Player p[11], *p_self;
+    Player_info p[11], *p_self;
 };
 
 Windows::Windows(){
     pthread_mutex_init (&mutex, NULL);
-    p_self = &p[0];
 
     initial();
     plist=newwin(16,30,(LINES-16)/2,(COLS-30)/2);
     nodelay(plist,TRUE);
     box(plist,'|','-');
-    playerlist_reflesh();
+    playerlist_refresh();
 
     sysmsg=newwin(15,78,(LINES)/2-20,(COLS-78)/2);
     sysmsg_box=newwin(17,82,(LINES)/2-21,(COLS-82)/2);
@@ -140,27 +178,33 @@ void Windows::initial(){
     wclear(stdscr);
     refresh();
 }
+void Windows::player_info_refresh(int flag, int i, int role, bool alive){
+    if(flag == 0){
+        p[i].role_id = role;
+    }
+    else if(flag == 1){
+        p[i].is_alive = alive;
+    }
+}
 
-void Windows::playerlist_reflesh(){
+void Windows::playerlist_refresh(){
     if(is_plist_show && is_gmae_start){
         wattron(plist,COLOR_PAIR(7)|A_BOLD);
         mvwprintw(plist,2,4,"|  I D  |   role   |");
         for(int i=0,j=0;j<11;j++){
-            if(p[j].alive){
-                wattron(plist,COLOR_PAIR(7)|A_BOLD);
+            if(p[j].is_playing){
+                if(p[j].is_alive){
+                    wattron(plist,COLOR_PAIR(7)|A_BOLD);
+                }
+                else{
+                    wattron(plist,COLOR_PAIR(6));
+                }
+                mvwprintw(plist,3+i, 2," %d ",i+1);
+                mvwprintw(plist,3+i, 5," %-8s ", p[j].name.c_str());
+                mvwprintw(plist,3+i,18,role_name[p[j].role_id].c_str());
+                i++;
             }
-            else{
-                wattron(plist,COLOR_PAIR(6));
-            }
-            mvwprintw(plist,3+i, 2," %d ",i+1);
-            mvwprintw(plist,3+i, 5," %-8s ", p[j].name.c_str());
-            if(p[j].show_role){
-                mvwprintw(plist,3+i,18,"  ?  ");
-            }
-            else{
-                mvwprintw(plist,3+i,18,"%d", p[j].Role_id);
-            }
-            i++;
+        
         }
         touchwin(plist);
         wrefresh(plist);
@@ -183,9 +227,22 @@ void Windows::playerlist_reflesh(){
     wrefresh(chat_i);
 }
 
+void Windows::lobby_refresh(int i, string n){
+    p[i].id = i;
+    p[i].name = n;
+    p[i].is_playing = true;
+    if(!is_gmae_start){
+        wattron(plist,COLOR_PAIR(7)|A_BOLD);
+        mvwprintw(plist,1,0,"|  I D  |             name             |");
+        // for(int i=0,j=0;j<11;j++){
+        //     mvwprintw(plist,2+i, 2," %d ",i+1);
+        //     mvwprintw(plist,2+i, 5," %-8s ", p[j].name.c_str());
+        //     i++;
+        // }
+    }
+}
 
-
-void Windows::output_reflesh(int w, string str){
+void Windows::output_refresh(int w, string str){
     if(str.empty()){
 
     }
@@ -227,7 +284,7 @@ void Windows::output_reflesh(int w, string str){
             touchwin(chat_i);
             wrefresh(chat_i);
         }
-        playerlist_reflesh();
+        playerlist_refresh();
     }   
 }
 
@@ -248,7 +305,7 @@ string Windows::input(){
             }
             else if(x == '\t'){
                 is_plist_show = !is_plist_show;
-                playerlist_reflesh();
+                playerlist_refresh();
             }
             else{
                 char_intput(x);
@@ -304,7 +361,7 @@ void Windows::msg_filter(int w, string str){
     else{
         msg = str;
     }
-    output_reflesh(w, str);
+    output_refresh(w, str);
 }
 
 void Windows::recv_msg(int w, stringstream &ss){

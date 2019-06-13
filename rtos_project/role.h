@@ -24,40 +24,7 @@ using namespace std;
 #define BUFSIZE 1024
 #define SERSIZE 30
 #define Server_output false
-const char GAME_STATE_MSG[][30] = {
-    "GAME_IDLE",
-    "GAME_LOADING",
-    "GAME_LOGIN",
-    "GAME_AWARD",
-    "GAME_COMPUTATION",
-    "GAME_SERVER_SHUTDOWN",
-    "MORNING_CHAT",
-    "MORNING_VOTE",
-    "MORNING_EFFECT",
-    "NIGHT",
-};
-const string role_name[] = {"???", "police", "detective", "bodyguard", "doctor", "spy", "Retired soldier"\
-                    , "Godfather", "Intimidate", "streetwalker", "survivor", "Serial killer"};
-const string group_name[] = {"Town", "Mafia", "Neutral/Kindness", "Neutral/Evil"};
-const string winning_cond[] = {
-    "Put all the criminal to Death!", 
-    "Kill all the people live in the TOWN and the person who opposite you!",
-    "Be alive until the game end",
-    "Kill all the people in the game"
-};
-const string role_func[] = {
-    "You can survey identity of a person at night either suspicious or not.", 
-    "You can survey identity of a person according to the character.",
-    "You can protect a person at night.",
-    "You can rescue a person who is on the brink of death.",
-    "You can track a person at night.",
-    "You have totally twice chance to be on the alert at night\nand you will kill all the person who visit you instead of serial killer.",
-    "You can kill a person at night.",
-    "You can restrict a person not to talk at morning.",
-    "You can restrict a person's action at night.",
-    "You have four bulletproof vest which can protect you from death.",
-    "You can kill a person at night."
-};
+
 
 stringstream ss_win;
 Windows w;
@@ -100,10 +67,6 @@ class Role{
 
     ///////////// table information
     string role_tab_info;
-    //// these list are according to player id
-    bool *alive_list;
-    int *player_role_list;
-    //////////////////////
 
     char snd[BUFSIZE], rcv[BUFSIZE];
     Role *cls_ptr;
@@ -154,6 +117,7 @@ void Role::game_start_update(string str){
         playerp = (pch1 + 8);
         p = atoi(playerp);
         alive_list[p] = true;
+        w.player_info_refresh(1, p, 0, true);
         // cout << "N: " << n << " id: " << p << endl;
     }    
 
@@ -220,16 +184,9 @@ Role::Role(int con, int role, int player, int player_amount){
     this->chating_ability = true;
     this->using_skill = false;
     this->game_over = false;
-    this->alive_list = new bool(player_amount);
-    this->player_role_list = new int (player_amount);
     this->role_tab_info = "";
-    // this->player_name_list = new string(player_amount);
-    // this->player_role_list = new string(player_amount);    
-    for (int i = 0 ; i < player_amount ; i++){
-        alive_list[i] = false;
-        player_role_list[i] = 0;
-    }
-    player_role_list[player] = Role_id;
+
+    w.player_info_refresh(0, player, Role_id, true);
 
     switch(Role_id){
         // Town
@@ -394,7 +351,7 @@ bool Role::check_obj(string str){
     if (strstr (cstr,"--obj ")){
         sscanf(cstr, "--obj %d", &player_obj);
         if(player_obj < player_amount && player_obj >= 0){
-            if(alive_list[player_obj] && player_obj != player){
+            if(w.is_player_alive(player_obj) && player_obj != player){
                 return true;
             }
             else{
@@ -423,7 +380,7 @@ int Role::check_voting(string str){
             return -1;
         }
         if(num < player_amount && num >= 0){
-            if(alive_list[num] && num != player){
+            if(w.is_player_alive(num) && num != player){
                 return num;
             }
             else{
@@ -505,13 +462,14 @@ void *connection_handler(void *conn){
 
             _role = atoi(roles.c_str());
             death = atoi(dea.c_str());
-            ptr->alive_list[death] = false;
+            w.player_info_refresh(1, death, 0, false);
             if (death == ptr->player){
                 ptr->alive = false;
             }
             ss_win_thread.str("");
             ss_win_thread << "Player " << death << "is dead, and his/her role is " << role_name[_role + 1] ;
-            w.recv_msg(1, ss_win_thread); 
+            w.recv_msg(1, ss_win_thread);
+            w.player_info_refresh(0, death, (_role + 1), true);
 
         }    
         else if(strstr(rcv, "--death ")){ 
@@ -527,7 +485,7 @@ void *connection_handler(void *conn){
                 count ++;
             }
             death = atoi(dea.c_str());
-            ptr->alive_list[death] = false;
+            w.player_info_refresh(1, death, 0, false);
             // cout << death << " " << ptr->player << endl;
             // ss_win << death << " " << ptr->player << endl;
             // w.recv_msg(ss_win);

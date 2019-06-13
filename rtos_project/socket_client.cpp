@@ -31,6 +31,7 @@ volatile bool flag_shutdown = false;
 string game_info = "";
 Role *role;
 bool game_start = false;
+
 void *recv_handler(void *arg){
     char buf_rcv[255]= {};
     while(1){
@@ -54,8 +55,8 @@ void *recv_handler(void *arg){
             pthread_exit(0);
         }else if(strstr(buf_rcv, "Players infomation")){      // if shutdown
             // printf("%s\n", buf_rcv);
-            ss_win<<buf_rcv<<endl;
-            w.recv_msg(1, ss_win);
+            // ss_win<<buf_rcv<<endl;
+            // w.recv_msg(1, ss_win);
             game_info = string(buf_rcv);
             flag_shutdown = true;
         }else if(strstr(buf_rcv, "--")){            // if receive '--' command
@@ -103,13 +104,14 @@ int main(int argc,char **argv){
     }
 
     // Send username once connecting server successfully  
-    char username[30] = {};
+    string username;
     // printf("Username: ");
-    ss_win<<"Username: "<<endl;
-    w.recv_msg(1, ss_win);
-    sprintf(username, "%c%c", rand()%20+'A', rand()%20+'A');
+    // ss_win<<"Username: "<<endl;
+    // w.recv_msg(1, ss_win);
+    // sprintf(username, "%c%c", rand()%20+'A', rand()%20+'A');
     // scanf("%s", username);
-    ret = send(sockfd, username, strlen(username), 0);
+    username = w.input();
+    ret = send(sockfd, username.c_str(), username.size(), 0);
     if(0 > ret){
         perror("connect");
         return -1;
@@ -122,10 +124,10 @@ int main(int argc,char **argv){
         perror("pthread_create");
         return -1;
     }
-    
+
     // Continue typing
     while(!flag_shutdown && !game_start){
-        usleep(50000);       
+        usleep(50000);
     }
     role->save_ptr(role);
     return 0;
