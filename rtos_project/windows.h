@@ -197,6 +197,10 @@ void Windows::player_info_refresh(int flag, int i, int role, bool alive, string 
     }
     else if(flag == 1){
         p[i].is_alive = alive;
+        if(p[i].is_alive == false){
+            msg.clear();
+            char_intput('\r');
+        }
     }
     else if(flag ==2){
         p[i].id = i;
@@ -209,15 +213,18 @@ void Windows::set_role_tab_info(int i, stringstream & ss){
     role_tab_info[i] = ss.str();
     ss.str("");
     wattron(plist,COLOR_PAIR(7));
-    mvwprintw(plist,3+i, 0, "%s", role_tab_info[i].c_str());
-    mvwprintw(plist,14,12,"|  I D  |           name           |      role      |");
     // touchwin(plist);
     // wrefresh(plist);
 }
 
 void Windows::playerlist_refresh(){
     if(is_plist_show){
+        wclear(plist);
         wattron(plist,COLOR_PAIR(7));
+        for(int i=0; i<5; i++){
+            mvwprintw(plist,3+i, 0, "%s", role_tab_info[i].c_str());
+        }
+        mvwprintw(plist,14,12,"|  I D  |           name           |       role       |");
         for(int i=0,j=0;j<11;j++){
             if(p[j].is_playing){
                 if(j == self_id){
@@ -234,7 +241,7 @@ void Windows::playerlist_refresh(){
                 }
                 mvwprintw(plist,15+i, 16,"%-2d",p[j].id);
                 mvwprintw(plist,15+i, (33-p[j].name.size()/2),"%s", p[j].name.c_str());
-                mvwprintw(plist,15+i, (55-role_name[p[j].role_id].size()/2),"%s", role_name[p[j].role_id].c_str());
+                mvwprintw(plist,15+i, (58-role_name[p[j].role_id].size()/2),"%s", role_name[p[j].role_id].c_str());
                 if(p[j].is_alive){
                     wattroff(plist, A_BOLD);
                 }
@@ -260,10 +267,10 @@ void Windows::playerlist_refresh(){
         touchwin(chat_o);
         wrefresh(chat_o);
     }
-    touchwin(chat_i_box);
-    wrefresh(chat_i_box);
-    touchwin(chat_i);
-    wrefresh(chat_i);
+    // touchwin(chat_i_box);
+    // wrefresh(chat_i_box);
+    // touchwin(chat_i);
+    // wrefresh(chat_i);
 }
 
 void Windows::lobby_refresh(int i, string n){
@@ -357,6 +364,15 @@ string Windows::input(){
                 if(last_state == 1){
                     return (string("--vote ") + char_intput(x));        
                 }
+                else if(last_state == 2){
+                    string str(char_intput(x));
+                    if((str[0]>='0' && str[0]<='9' &&str.size() ==1)||str == "11"){
+                        return (string("--obj ") + str);
+                    }
+                    else{
+                        return str;
+                    }
+                }
                 else{
                     return char_intput(x);
                 }
@@ -388,27 +404,49 @@ string Windows::char_intput(int c){
     }
     else if(c == '\r'){
         wclear(chat_i);
-        // if(is_name_set){
+        if(p[self_id].is_alive){
             switch(last_state){
                 case -1:
                     mvwprintw(chat_i,2,0,"Enter your name :");
                     break;
                 case 0:
-                    mvwprintw(chat_i,2,0,"Say :");
+                    mvwprintw(chat_i,2,0,"Say something:");
                     break;
                 case 1:
-                    mvwprintw(chat_i,2,0,"Vote :");
+                    mvwprintw(chat_i,2,0,"Vote a player:");
                     break;
                 case 2:
-                    mvwprintw(chat_i,2,0,"Do :");
+                    switch(p[self_id].role_id){
+                        case 1:
+                        case 2:
+                        case 3:
+                        case 4:
+                        case 5:
+                        case 11:
+                            mvwprintw(chat_i,2,0,"Select a player to use your skill:");
+                            break;
+                        case 7:
+                        case 8:
+                        case 9:
+                            mvwprintw(chat_i,2,0,"Select a player to use your skill or");
+                            mvwprintw(chat_i,3,0,"Say something :");
+                            break;    
+                        // defense
+                        case 6:
+                        case 10:
+                            mvwprintw(chat_i,2,0,"Do you want to use your skill (y/n):");
+                            break;
+                        default:
+                            break;
+                    }
                     break;
                 default:
                     break;
             }
-        // }
-        // else{
-        //     mvwprintw(chat_i,2,0,"Enter your name :");
-        // }
+        }
+        else{
+            mvwprintw(chat_i,2,0,"Your dead:");
+        }
     }
     else{
         wprintw(chat_i, "%c", c);

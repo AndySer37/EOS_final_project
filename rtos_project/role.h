@@ -338,11 +338,11 @@ void Role::night_func(){
 }
 /// --use, --notuse --obj ? else chatting
 bool Role::check_obj(string str){
-    if (str == "--use"){
+    if (str == "--obj y"){
         player_obj = -1;
         return true;
     }    
-    if (str == "--notuse"){
+    if (str == "--obj n"){
         player_obj = -2;
         return true;
     }      
