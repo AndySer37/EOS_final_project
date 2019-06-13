@@ -120,12 +120,18 @@ void socket_broadcast(char const *announcement_type, char const *str){
     }
 }
 
-int send_by_role(int role, char const *str){
-
-}
-
-int send_by_playerid(int playerid, char const *str){
-    send(confd[playerid], str, sizeof(str), 0);
+int find_role_by_playerid(int player){
+    int i;
+    bool found = false;
+    for(i=0; i < ROLE_AMO;i++)
+        if(gs->role_table[i][0] == player){
+            found = true;
+            break;
+        }
+    if(found)
+        return i;
+    else
+        return -1;
 }
 
 void shutdown_handler(int signal_num){
@@ -161,7 +167,7 @@ void *socket_rcv_handler(void *indexp){
         sprintf(buf_snd, "Sorry, the game has been started for %.0lf %s(s). Please wait for next round\n", 
             (difftime(t_stamp, t_gamestart)<60)? difftime(t_stamp, t_gamestart):difftime(t_stamp, t_gamestart)/60,
             (difftime(t_stamp, t_gamestart)<60)? "sec": "min");
-        send(confd[userid], buf_snd, strlen(buf_snd), 0);
+        send(confd[userid], buf_snd, sizeof(buf_snd), 0);
         confd[userid] = -1;
         pthread_exit(0);
     }else {
@@ -224,7 +230,7 @@ void *socket_rcv_handler(void *indexp){
             // find where is 'vote'
             std::size_t found = tmp.find("vote");
             sscanf(&buf_rcv[found], "vote %d", &target);
-            printf("p=%d, target=%d\n", userid, target);
+            printf("player: %d, vote target=%d\n", userid, target);
             player_tb[userid].vote_target = target;
 
         }else if(game_state == NIGHT && player_tb[userid].alive){
@@ -243,7 +249,7 @@ void *socket_rcv_handler(void *indexp){
                     break;
                 }
 
-            printf("p=%d, target=%d\n", userid, target);
+            printf("player: %d, obj target=%d\n", userid, target);
             player_tb[userid].obj_target = target;
         }
     }
@@ -464,6 +470,8 @@ int main(int argc, char *argv[]){
         for(int i=0; i < MAX_SOCKET_CONNECTION; i++)
             player_tb[i].vote_target = -1;
         socket_broadcast("SYSTEM", GAME_STATE_MSG[game_state]);
+        sleep(1);
+        socket_broadcast("SYSTEM", "Start voting");
         wait_timer_countdown(30);
 
         // 轉換投票結果到字串
