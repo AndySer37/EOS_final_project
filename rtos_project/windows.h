@@ -20,8 +20,8 @@ const char GAME_STATE_MSG[][30] = {
     "MORNING_EFFECT",
     "NIGHT",
 };
-const string role_name[] = {"???", "police", "detective", "bodyguard", "doctor", "spy", "Retired soldier"\
-                    , "Godfather", "Intimidate", "streetwalker", "survivor", "Serial killer"};
+const string role_name[] = {"???", "Police", "Detective", "Bodyguard", "Doctor", "Spy", "Retired soldier"\
+                    , "Godfather", "Intimidate", "Streetwalker", "Survivor", "Serial killer"};
 const string group_name[] = {"Town", "Mafia", "Neutral/Kindness", "Neutral/Evil"};
 const string winning_cond[] = {
     "Put all the criminal to Death!", 
@@ -35,7 +35,7 @@ const string role_func[] = {
     "You can protect a person at night.",
     "You can rescue a person who is on the brink of death.",
     "You can track a person at night.",
-    "You have totally twice chance to be on the alert at night\nand you will kill all the person who visit you instead of serial killer.",
+    "You have totally twice chance to be on the alert at night, and you will kill all the person who visit you instead of serial killer.",
     "You can kill a person at night.",
     "You can restrict a person not to talk at morning.",
     "You can restrict a person's action at night.",
@@ -60,7 +60,7 @@ class Player_info
 public:
     Player_info(){
         is_playing = false;
-        is_alive = true;
+        is_alive = false;
         name = "";
         id = role_id = 0;
     }
@@ -86,13 +86,14 @@ public:
     void recv_msg(stringstream & );
     bool is_player_alive(int i){ return p[i].is_alive; }
     void set_statr_ptr(int &ptr){ state = &ptr; }
+    void set_role_tab_info(int, stringstream & );
     string input();
     string char_intput(int );
 
 private:
     pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
     WINDOW *chat_o, *chat_i, *plist, *sysmsg, *lobby;
-    WINDOW *chat_o_box, *chat_i_box, *sysmsg_box;
+    WINDOW *chat_o_box, *chat_i_box, *sysmsg_box, *plist_box;
     
     bool is_plist_show = false;
     bool is_game_start = false;
@@ -102,23 +103,28 @@ private:
     Player_info p[11];
     int *state;
     int self_id;
+    string role_tab_info[5];
 };
 
 Windows::Windows(){
     pthread_mutex_init (&mutex, NULL);
 
     initial();
-    plist=newwin(16,30,(LINES-16)/2,(COLS-30)/2);
+    plist=newwin(32,76,(LINES)/2-20,(COLS-76)/2);
+    plist_box=newwin(34,82,(LINES)/2-21,(COLS-82)/2);
     nodelay(plist,TRUE);
-    box(plist,'|','-');
+    box(plist_box,'O','O');
+    touchwin(plist_box);
+    wrefresh(plist_box);
+    touchwin(plist);
+    wrefresh(plist);
     playerlist_refresh();
 
     sysmsg=newwin(15,78,(LINES)/2-20,(COLS-78)/2);
     sysmsg_box=newwin(17,82,(LINES)/2-21,(COLS-82)/2);
     nodelay(sysmsg,TRUE);
-    box(sysmsg_box,'*','*');
-    // mvwprintw(sysmsg,2,2,"output\n");
     scrollok(sysmsg,TRUE); 
+    box(sysmsg_box,'*','*');
     touchwin(sysmsg_box);
     wrefresh(sysmsg_box);
     touchwin(sysmsg);
@@ -195,25 +201,42 @@ void Windows::player_info_refresh(int flag, int i, int role, bool alive, string 
     }
 }
 
+void Windows::set_role_tab_info(int i, stringstream & ss){
+    role_tab_info[i] = ss.str();
+    ss.str("");
+    wattron(plist,COLOR_PAIR(7));
+    mvwprintw(plist,3+i, 0, "%s", role_tab_info[i].c_str());
+    mvwprintw(plist,14,12,"|  I D  |           name           |      role      |");
+    touchwin(plist);
+    wrefresh(plist);
+}
+
 void Windows::playerlist_refresh(){
-    if(is_plist_show && is_game_start){
-        wattron(plist,COLOR_PAIR(7)|A_BOLD);
-        mvwprintw(plist,2,4,"|  I D  |   role   |");
+    if(is_plist_show){
+        wattron(plist,COLOR_PAIR(7));
         for(int i=0,j=0;j<11;j++){
             if(p[j].is_playing){
                 if(p[j].is_alive){
-                    wattron(plist,COLOR_PAIR(7)|A_BOLD);
+                    wattron(plist, A_BOLD);
                 }
                 else{
-                    wattron(plist,COLOR_PAIR(6));
+                    wattron(plist, A_DIM);
                 }
-                mvwprintw(plist,3+i, 2," %d ",p[j].id);
-                mvwprintw(plist,3+i, 5," %-8s ", p[j].name.c_str());
-                mvwprintw(plist,3+i,18,role_name[p[j].role_id].c_str());
+                mvwprintw(plist,15+i, 15,"%d",p[j].id);
+                mvwprintw(plist,15+i, 22,"%s", p[j].name.c_str());
+                mvwprintw(plist,15+i, 49,"%s", role_name[p[j].role_id].c_str());
+                if(p[j].is_alive){
+                    wattroff(plist, A_BOLD);
+                }
+                else{
+                    wattroff(plist, A_DIM);
+                }
                 i++;
             }
         
         }
+        touchwin(plist_box);
+        wrefresh(plist_box);
         touchwin(plist);
         wrefresh(plist);
     }
@@ -224,10 +247,8 @@ void Windows::playerlist_refresh(){
         wrefresh(sysmsg);
         touchwin(chat_o_box);
         wrefresh(chat_o_box);
-        if(is_game_start){
-            touchwin(chat_o);
-            wrefresh(chat_o);
-        }
+        touchwin(chat_o);
+        wrefresh(chat_o);
     }
     touchwin(chat_i_box);
     wrefresh(chat_i_box);
@@ -325,8 +346,10 @@ string Windows::input(){
                 return char_intput(x);
             }
             else if(x == '\t'){
-                is_plist_show = !is_plist_show;
-                playerlist_refresh();
+                if(is_game_start){
+                    is_plist_show = !is_plist_show;
+                    playerlist_refresh();
+                }
             }
             else{
                 char_intput(x);
