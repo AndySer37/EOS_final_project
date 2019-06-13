@@ -160,6 +160,7 @@ void Role::save_ptr(Role *p){
         perror("could not create thread");
         return;
     }
+    sleep(1);
     while(alive && !game_over){
         switch(state_check){
             case 0:
@@ -268,14 +269,13 @@ int Role::vote_period(){
     }
 }
 void Role::day_func(){
-    // sleep(1);
     string sent;
     // cout << "============= Day Time =============\n";
     if(alive)
         ss_win << "============= Day Time =============\n";
     else
         ss_win << "============= Death Zone =============\n";
-    sleep(1);
+    // sleep(1);
     w.recv_msg(1, ss_win);
     // sleep(1);
     while(state_check == 0){
