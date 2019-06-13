@@ -21,8 +21,7 @@
 // --p [num] --vote [vote_player]            // [vote_player] == -1 , not voting
 // --vote 2
 using namespace std;
-#define BUFSIZE 1024
-#define SERSIZE 30
+#define BUFSIZE 255
 #define Server_output false
 
 
@@ -124,7 +123,7 @@ void Role::game_start_update(string str){
 void Role::save_ptr(Role *p){
 
     cls_ptr = p;
-    w.set_statr_ptr(state_check, player);
+    w.set_statr_ptr(state_check);
 
     ss_win.str("");
     ss_win << "You are player " << player << endl;
@@ -142,7 +141,7 @@ void Role::save_ptr(Role *p){
         perror("could not create thread");
         return;
     }
-    // sleep(1);
+    sleep(1);
     while(alive && !game_over){
         switch(state_check){
             case 0:
@@ -202,6 +201,7 @@ Role::Role(int con, int role, int player, int player_amount){
         case 8:
         case 9:
             group = 1;
+            break;
         // neutrality
         case 10:
             group = 2;
@@ -255,11 +255,18 @@ void Role::day_func(){
         ss_win << "============= Day Time =============\n";
     else
         ss_win << "============= Death Zone =============\n";
+    // sleep(1);
     w.recv_msg(ss_win);
+    // sleep(1);
     while(state_check == 0 && !game_over){
         sent = w.input();
         if(chating_ability){
             output(sent);
+        }
+        else{
+            ss_win.str("");
+            ss_win << "You are threatened to be quiet !!\n";
+            w.recv_msg(ss_win);            
         }
     }
     
@@ -440,20 +447,21 @@ void *connection_handler(void *conn){
             }
         }
 
-        if(strstr(rcv, "--true-role")){ 
+        if(strstr(rcv, "--true")){ 
 
             roles = "";
             dea = "";
             pch = strstr (rcv,"--death ");
             pch1 = strstr (rcv,"--true-role ");
             for (int j = 0; j < (pch1 - pch - 9) ; j++){
-                roles += *(pch + 8 + j);
+                dea += *(pch + 8 + j);
             }
             count = 0;
             while(*(pch1 + 12 + count) != '\0'){
-                dea += *(pch1 + 12 + count);
+                roles += *(pch1 + 12 + count);
                 count ++;
             }
+
 
             _role = atoi(roles.c_str());
             death = atoi(dea.c_str());
@@ -499,7 +507,8 @@ void *connection_handler(void *conn){
             ss_win_thread.str("");
             ss_win_thread << "God Father is dead, So you switch to Godfather.\nNow you can kill a player at night.";
             w.recv_msg(ss_win_thread); 
-            ptr->Role_id = 7;      
+            ptr->Role_id = 7;
+            w.player_info_refresh(0, ptr->player, 7, true, "");
         } 
         if (strstr(rcv, "--game-over")){
             ss_win_thread.str("");
@@ -514,9 +523,9 @@ void *connection_handler(void *conn){
             w.recv_msg(ss_win_thread); 
             ptr->chating_ability = false;
         } 
-        if (strstr(rcv, "--")){
-            continue;
-        }
+        // if (strstr(rcv, "--") && !strstr(rcv, "---")){
+        //     continue;
+        // }
 
         /////////////////////
         // system("clear");
