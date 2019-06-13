@@ -205,7 +205,7 @@ void *socket_rcv_handler(void *indexp){
             sprintf(buf_snd, "[%s]: %s", username, buf_rcv);
             cout << buf_snd << endl;
             for(int i = 0; i <= num_conn; i++){
-                if(i == userid || confd[i] == 0) continue;    // skip the user who send the msg
+                // if(i == userid || confd[i] == 0) continue;    // skip the user who send the msg
                 send(confd[i], buf_snd, sizeof(buf_snd), 0);
             }
         }else if(game_state == MORNING_VOTE && player_tb[userid].alive){
@@ -537,9 +537,11 @@ int main(int argc, char *argv[]){
         //// check game over ////
         if (gs->game_over_check()){
             socket_broadcast("", (gs->event_des).c_str());
+            usleep(1000);
             socket_broadcast("", "--game-over");
             break;
         }
     }
+    while(1){}
     return 0;
 }
