@@ -228,11 +228,11 @@ void *socket_rcv_handler(void *indexp){
         }else if(game_state == MORNING_VOTE && player_tb[userid].alive){
             int target= -1;
             std::string tmp(buf_rcv);
-
             // find where is 'vote'
             std::size_t found = tmp.find("vote");
             sscanf(&buf_rcv[found], "vote %d", &target);
             printf("player: %d, vote target=%d\n", userid, target);
+            if(target < num_conn);
             player_tb[userid].vote_target = target;
 
         }else if(game_state == NIGHT && player_tb[userid].alive){
@@ -241,18 +241,36 @@ void *socket_rcv_handler(void *indexp){
 
             // find where is 'obj'
             std::size_t found = tmp.find("obj");
-            sscanf(&buf_rcv[found], "obj %d", &target);
 
-            // find role
-            int tmp_role, i;
-            for(i=0; i < ROLE_AMO; i++)
-                if(gs->role_table[i][0] == userid){
-                    tmp_role = i;
-                    break;
+            if(found == -1){
+                int i;
+                for(i=0;i<ROLE_AMO;i++)
+                    if(gs->role_table[i][0] == userid)
+                        break;
+                if(i >= 6 && i <= 8){
+                    for(i = 6; i <= 8; i++){
+                        if(confd[gs->role_table[i][0]] != -1){
+                            sprintf(buf_rcv, "(p)[%s]: %s", username, tmp.c_str());
+                            send(confd[gs->role_table[i][0]], buf_rcv, sizeof(buf_rcv), 0);
+                        }
+                        // usleep(1000);
+                    }
                 }
+            }
+            else{
+                sscanf(&buf_rcv[found], "obj %d", &target);
 
-            printf("player: %d, obj target=%d\n", userid, target);
-            player_tb[userid].obj_target = target;
+                // find role
+                int tmp_role, i;
+                for(i=0; i < ROLE_AMO; i++)
+                    if(gs->role_table[i][0] == userid){
+                        tmp_role = i;
+                        break;
+                    }
+
+                printf("player: %d, obj target=%d\n", userid, target);
+                player_tb[userid].obj_target = target;
+            }
         }
     }
 }
@@ -473,7 +491,7 @@ int main(int argc, char *argv[]){
         game_state = MORNING_CHAT;
         socket_broadcast("SYSTEM", GAME_STATE_MSG[game_state]);
         time(&t_gamestart);
-        wait_timer_countdown(10);
+        wait_timer_countdown(20);
 
 
 
@@ -488,7 +506,7 @@ int main(int argc, char *argv[]){
         socket_broadcast("SYSTEM", GAME_STATE_MSG[game_state]);
         sleep(1);
         socket_broadcast("SYSTEM", "Start voting");
-        wait_timer_countdown(15);
+        wait_timer_countdown(20);
 
         // 轉換投票結果到字串
         string str_arr1[gs->alive];
@@ -542,7 +560,7 @@ int main(int argc, char *argv[]){
         for(int i=0; i < MAX_SOCKET_CONNECTION; i++)    // clear obj table
             player_tb[i].obj_target = -2;
         socket_broadcast("SYSTEM", GAME_STATE_MSG[game_state]);
-        wait_timer_countdown(45);
+        wait_timer_countdown(30);
 
         // 轉換效果發動到字串
         string str_arr2[gs->alive];
@@ -551,12 +569,11 @@ int main(int argc, char *argv[]){
         // 效果發動邏輯運算
         gs->night_update(str_arr2);   
         for (int i = 0; i < ROLE_AMO ; i++){
-            if (gs->respond[i] != ""){
-                char buf_tmp[100];
-                strcpy(buf_tmp, gs->respond[i].c_str());
-                cout << i << ": " << buf_tmp;
-                send(confd[i], buf_tmp, sizeof(buf_tmp), 0);
-            }
+            char buf_tmp[100];
+            strcpy(buf_tmp, gs->respond[i].c_str());
+            cout << i << ": " << buf_tmp;
+            send(confd[i], buf_tmp, sizeof(buf_tmp), 0);
+            
         }
         char buf_snd2[255];
         strcpy(buf_snd2, (gs->event_des).c_str());
@@ -579,15 +596,14 @@ int main(int argc, char *argv[]){
                     true_role = j; // 公佈亡人職業
                     break;
                 }
-            char buf_snd[] = "--quiet";
-            send(confd[gs->intimidate_obj], buf_snd, sizeof(buf_snd), 0);
-            
             sprintf(tmp_buf, "--death %d --true-role %d", iter->player, true_role);
             socket_broadcast("", tmp_buf);
             player_tb[iter->player].alive = 0; 
         } 
-
-
+        if (gs->intimidate_obj >= 0){
+            char buf_snd[] = "--quiet";
+            send(confd[gs->intimidate_obj], buf_snd, sizeof(buf_snd), 0);
+        }
         //// check god father alive ////
         if (gs->godfather_alive_check()){
             cout << "god father dead.\n";
