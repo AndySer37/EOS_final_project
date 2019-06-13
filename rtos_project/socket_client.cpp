@@ -47,34 +47,16 @@ void *recv_handler(void *arg){
             flag_shutdown = true;
             pthread_exit(0);
         }else if(strstr(buf_rcv, "SHUTDOWN")){      // if shutdown
-
-
-
-
-
             // printf("%s\n", buf_rcv);
             ss_win<<buf_rcv;
             w.recv_msg(1, ss_win);
-
-
-
             close(sockfd);
             flag_shutdown = true;
             pthread_exit(0);
         }else if(strstr(buf_rcv, "Players infomation")){      // if shutdown
-
-
-
-
-
             // printf("%s\n", buf_rcv);
             ss_win<<buf_rcv;
             w.recv_msg(1, ss_win);
-
-
-
-
-
             game_info = string(buf_rcv);
             flag_shutdown = true;
         }else if(strstr(buf_rcv, "--")){            // if receive '--' command
@@ -85,20 +67,11 @@ void *recv_handler(void *arg){
             game_start = true;
             pthread_exit(0);
         }else{
-
-
-
-
-
             // printf("%s\r\n%s", buf_rcv, buf_snd); // Bug: cannot record previous words after receving msg from server 
             ss_win<<buf_rcv;
             w.recv_msg(1, ss_win);
             ss_win<<buf_snd;
             w.recv_msg(1, ss_win);
-
-
-
-
         }
     }
 }
@@ -145,17 +118,9 @@ int main(int argc,char **argv){
 
     // Send username once connecting server successfully  
     char username[30] = {};
-
-
-
-
-
     // printf("Username: ");
     ss_win<<"Username: ";
     w.recv_msg(1, ss_win);
-
-
-
     sprintf(username, "%c%c", rand()%20+'A', rand()%20+'A');
     // scanf("%s", username);
     ret = send(sockfd, username, strlen(username), 0);
@@ -184,113 +149,31 @@ int main(int argc,char **argv){
             if (y == 91){
                 switch (z){
                     case 65:
-
-
-
                         // printf("up");
-
-
-
                         // sprintf(buf_snd, "up");
-
-
-
                         break;
                     case 66:
-
-
                         // printf("down");
-
-
                         // sprintf(buf_snd, "down");
-
-
-
                         break;
                     // case 67:
-
-
-
-
-
                     //     printf("%c[2K\r", 27);
-
-
-
-
-
-
-
-
-
-
                     //     printf("right\r");
-
-
-
-
-
                     //     break;
                     // case 68:
-
-
-
-
-
                     //     printf("%c[2K\r", 27);
-
-
-
-
-
-
-
-
-
-
                     //     printf("left\r");
-
-
-
-
-
                     //     break;
                 }
             }
         }
         else if(x == 8 || x == 127){
-
-
-
-
-
             // printf("\b \b");
-
-
-
-
-
             buf_snd[strlen(buf_snd) - 1] = '\0';
-
         }
         else if(x == 10){
-
-
-
-
-
             // printf("%c", x);
-
-
-
-
-
             // printf("%s\n", buf_snd);
-
-
-
-
-
             int ret = send(sockfd, buf_snd, strlen(buf_snd), 0);
             if(0 > ret){
                 perror("send");
@@ -299,19 +182,8 @@ int main(int argc,char **argv){
             memset(buf_snd, 0, sizeof(buf_snd));
         }
         else if(x != -1){
-
-
-
             // printf("%c", x);
-
-
-
             sprintf(buf_snd, "%s%c", buf_snd, x);
-
-
-
-
-
         }
         
     }

@@ -37,11 +37,9 @@ int main(int argc, char** argv) {
     
     // initial();
     Windows w;
-    bool sth = 1;
-    int i=0;
     w.chatroom();
-    while(sth){
-        w.recv_msg(0, w.input(sth));
+    while(1){
+        w.recv_msg(0, w.input());
     }
     
     // endwin();

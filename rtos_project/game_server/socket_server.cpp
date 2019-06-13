@@ -21,6 +21,8 @@ using namespace std;
 #define SOCKET_IP "127.0.0.1"
 #define GAME_COUNTDOWN_SECOND 5
 
+string port; ;
+
 typedef struct sockaddr *sockaddrp;
 typedef enum{
     GAME_IDLE=0,
@@ -82,7 +84,8 @@ int socket_init(int *sockfd){
 
     // Input port and ip from args 
     struct sockaddr_in addr = {AF_INET};
-    addr.sin_port = htons(atoi(SOCKET_PORT));    // Convert host btye order to network byte order
+    addr.sin_port = htons(atoi(port.c_str()));
+    // addr.sin_port = htons(atoi(SOCKET_PORT));    // Convert host btye order to network byte order
     addr.sin_addr.s_addr = inet_addr(SOCKET_IP);
     socklen_t addr_len = sizeof(addr);
 
@@ -341,6 +344,14 @@ void wait_timer_countdown(unsigned int sec){
 
 
 int main(int argc, char *argv[]){
+
+    if(argc == 2){
+        port = argv[1];
+    }
+    else {
+        port = "8787";
+    }
+
     pthread_t tid;
     srand(time(NULL));
     if(systick_init(&server_timer) < 0) return -1;

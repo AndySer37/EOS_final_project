@@ -66,7 +66,7 @@ Chatroom::Chatroom(){
     box(plist,'|','-');
     playerlist_reflesh();
 
-    sysmsg=newwin(15,80,(LINES)/2-20,(COLS-80)/2);
+    sysmsg=newwin(15,78,(LINES)/2-20,(COLS-78)/2);
     sysmsg_box=newwin(17,82,(LINES)/2-21,(COLS-82)/2);
     nodelay(sysmsg,TRUE);
     box(sysmsg_box,'*','*');
@@ -77,7 +77,7 @@ Chatroom::Chatroom(){
     touchwin(sysmsg);
     wrefresh(sysmsg);
 
-    chat_o=newwin(15,80,(LINES)/2-3,(COLS-80)/2);
+    chat_o=newwin(15,78,(LINES)/2-3,(COLS-78)/2);
     chat_o_box=newwin(17,82,(LINES)/2-4,(COLS-82)/2);
     nodelay(chat_o,TRUE);
     box(chat_o_box,'|','-');
@@ -194,7 +194,7 @@ void Chatroom::output_reflesh(int w, string str){
             touchwin(chat_o);
             getyx(chat_o, y, x);
             // str +="\n";
-            mvwprintw(chat_o, y, 2, str.c_str());
+            mvwprintw(chat_o, y, 0, str.c_str());
             wrefresh(chat_o);
             touchwin(chat_i_box);
             wrefresh(chat_i_box);
@@ -208,7 +208,7 @@ void Chatroom::output_reflesh(int w, string str){
             touchwin(sysmsg);
             getyx(sysmsg, y, x);
             // str +="\n";
-            mvwprintw(sysmsg, y, 2, str.c_str());
+            mvwprintw(sysmsg, y, 0, str.c_str());
             wrefresh(sysmsg);
             touchwin(chat_i_box);
             wrefresh(chat_i_box);

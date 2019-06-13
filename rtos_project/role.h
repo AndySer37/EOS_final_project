@@ -504,7 +504,12 @@ void *connection_handler(void *conn){
 
         // cout << rcv << endl;
         ss_win << rcv << endl;
-        w.recv_msg(0, ss_win);
+        if(ss_win.str()[0] == '['){
+            w.recv_msg(1, ss_win);
+        }
+        else{
+            w.recv_msg(1, ss_win);
+        }
         if (strlen(buf_snd_role) != 0){
             // cout << buf_snd_role;
             // ss_win << buf_snd_role;
