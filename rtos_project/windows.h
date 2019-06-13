@@ -85,8 +85,11 @@ public:
     void msg_filter(string );
     void recv_msg(stringstream & );
     bool is_player_alive(int i){ return p[i].is_alive; }
-    void set_statr_ptr(int &ptr){ state = &ptr; }
     void set_role_tab_info(int, stringstream & );
+    void set_statr_ptr(int &ptr, int p){
+        state = &ptr;
+        self_id = p;
+    }
     string input();
     string char_intput(int );
 
@@ -103,6 +106,7 @@ private:
     Player_info p[11];
     int *state;
     int self_id;
+    int last_state = -1;
     string role_tab_info[5];
 };
 
@@ -207,8 +211,8 @@ void Windows::set_role_tab_info(int i, stringstream & ss){
     wattron(plist,COLOR_PAIR(7));
     mvwprintw(plist,3+i, 0, "%s", role_tab_info[i].c_str());
     mvwprintw(plist,14,12,"|  I D  |           name           |      role      |");
-    touchwin(plist);
-    wrefresh(plist);
+    // touchwin(plist);
+    // wrefresh(plist);
 }
 
 void Windows::playerlist_refresh(){
@@ -216,15 +220,21 @@ void Windows::playerlist_refresh(){
         wattron(plist,COLOR_PAIR(7));
         for(int i=0,j=0;j<11;j++){
             if(p[j].is_playing){
+                if(j == self_id){
+                    wattron(plist, COLOR_PAIR(3));
+                }
+                else{
+                    wattron(plist, COLOR_PAIR(7));
+                }
                 if(p[j].is_alive){
                     wattron(plist, A_BOLD);
                 }
                 else{
                     wattron(plist, A_DIM);
                 }
-                mvwprintw(plist,15+i, 15,"%d",p[j].id);
-                mvwprintw(plist,15+i, 22,"%s", p[j].name.c_str());
-                mvwprintw(plist,15+i, 49,"%s", role_name[p[j].role_id].c_str());
+                mvwprintw(plist,15+i, 16,"%-2d",p[j].id);
+                mvwprintw(plist,15+i, (33-p[j].name.size()/2),"%s", p[j].name.c_str());
+                mvwprintw(plist,15+i, (55-role_name[p[j].role_id].size()/2),"%s", role_name[p[j].role_id].c_str());
                 if(p[j].is_alive){
                     wattroff(plist, A_BOLD);
                 }
@@ -324,13 +334,14 @@ void Windows::output_refresh(int w, string str){
 
 
 string Windows::input(){
-    int x, last_state;
+    int x;
     msg.clear();
-    if(state != NULL){
-        last_state = *state;
-    }
+    // if(state != NULL){
+    //     last_state = *state;
+    // }
     while(1){
         if((state != NULL)&&(last_state != *state)){
+            last_state = *state;
             msg.clear();
             char_intput('\r');
             return "";
@@ -343,7 +354,12 @@ string Windows::input(){
                 return "";
             }
             else if(x == '\r'){
-                return char_intput(x);
+                if(last_state == 1){
+                    return (string("--vote ") + char_intput(x));        
+                }
+                else{
+                    return char_intput(x);
+                }
             }
             else if(x == '\t'){
                 if(is_game_start){
@@ -372,12 +388,27 @@ string Windows::char_intput(int c){
     }
     else if(c == '\r'){
         wclear(chat_i);
-        if(is_name_set){
-            mvwprintw(chat_i,2,0,"Say :");
-        }
-        else{
-            mvwprintw(chat_i,2,0,"Enter your name :");
-        }
+        // if(is_name_set){
+            switch(last_state){
+                case -1:
+                    mvwprintw(chat_i,2,0,"Enter your name :");
+                    break;
+                case 0:
+                    mvwprintw(chat_i,2,0,"Say :");
+                    break;
+                case 1:
+                    mvwprintw(chat_i,2,0,"Vote :");
+                    break;
+                case 2:
+                    mvwprintw(chat_i,2,0,"Do :");
+                    break;
+                default:
+                    break;
+            }
+        // }
+        // else{
+        //     mvwprintw(chat_i,2,0,"Enter your name :");
+        // }
     }
     else{
         wprintw(chat_i, "%c", c);
@@ -393,6 +424,14 @@ string Windows::char_intput(int c){
 void Windows::name_setted(){
     is_name_set = true;
     is_game_start = true;
+    wclear(chat_i);
+    mvwprintw(chat_i,2,0,"Say :");
+    touchwin(chat_i_box);
+    wrefresh(chat_i_box);
+    touchwin(chat_i);
+    wrefresh(chat_i);
+
+
 }
 void Windows::msg_filter(string str){
     int w;
