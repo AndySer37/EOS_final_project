@@ -218,16 +218,17 @@ Role::Role(int con, int role, int player, int player_amount){
 }
 int Role::vote_period(){
     string kb_input = "";
+    ss_win << "Please make a decision\n";
+    w.recv_msg(1, ss_win);
+    ss_win << "Command : --vote [player num]\n";
+    w.recv_msg(1, ss_win);
+    ss_win << "not to vote if [player num] = -1\n";
+    w.recv_msg(1, ss_win);
     while(state_check == 1 && alive && !game_over){  
         // cout << "Please make a decision\n";
         // cout << "Command : --vote [player num]\n";
         // cout << "not to vote if [player num] = -1\n";
-        ss_win << "Please make a decision\n";
-        w.recv_msg(1, ss_win);
-        ss_win << "Command : --vote [player num]\n";
-        w.recv_msg(1, ss_win);
-        ss_win << "not to vote if [player num] = -1\n";
-        w.recv_msg(1, ss_win);
+
         kb_input = w.input();
         voting = check_voting(kb_input);
         ostringstream ss;
@@ -276,13 +277,13 @@ void Role::night_func(){
     using_skill = false;
     char *pch;
     const char *res;
+    ss_win << "Please make a decision\n";
+    w.recv_msg(1, ss_win);
+    ss_win << "Command : --use, --notuse, --obj [player num], [chatting]\n";
+    w.recv_msg(1, ss_win);
     while(state_check == 2 && alive && !game_over){ 
         // cout << "Please make a decision\n";
         // cout << "Command : --use, --notuse, --obj [player num], [chatting]\n";
-        ss_win << "Please make a decision\n";
-        w.recv_msg(1, ss_win);
-        ss_win << "Command : --use, --notuse, --obj [player num], [chatting]\n";
-        w.recv_msg(1, ss_win);
         kb_input = w.input();
         using_skill = check_obj(kb_input);
         if(using_skill){
@@ -322,8 +323,7 @@ void Role::night_func(){
                     break;
             }
             ostringstream ss;
-            ss_win << "--role " << (Role_id - 1) << " --obj " << player_obj;
-            w.recv_msg(1, ss_win);
+            ss << "--role " << (Role_id - 1) << " --obj " << player_obj;
             if ((n = write(connfd, ss.str().c_str(), strlen(ss.str().c_str()))) == -1)
                 errexit("Error: write()\n");  
         }
