@@ -312,12 +312,12 @@ void Role::night_func(){
                     w.recv_msg(ss_win);
                     if(player_obj == -1){
                         // cout << "launch.\n";
-                        ss_win << "launch your skill.\n";
+                        ss_win << "use your skill.\n";
                         w.recv_msg(ss_win);
                     }
                     else if(player_obj == -2){
                         // cout << "not to launch.\n";
-                        ss_win << "not to launch your skill.\n";
+                        ss_win << "not to use your skill.\n";
                         w.recv_msg(ss_win);
                     }
                     break;
@@ -512,7 +512,8 @@ void *connection_handler(void *conn){
         } 
         if (strstr(rcv, "--game-over")){
             ss_win_thread.str("");
-            ss_win_thread << "The Game is Over.";
+            ss_win_thread << "The Game is Over.\n";
+            ss_win_thread << rcv << endl;
             w.recv_msg(ss_win_thread); 
             ptr->game_over = true;  
             break; 
