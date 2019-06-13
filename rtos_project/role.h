@@ -29,7 +29,7 @@ using namespace std;
 stringstream ss_win;
 Windows w;
 
-char buf_snd_role[255] = {0};                // temporary key in buffer
+// char buf_snd_role[255] = {0};                // temporary key in buffer
 void *connection_handler(void *);
 int getch_role(void){
     int ch;
@@ -66,7 +66,6 @@ class Role{
     bool using_skill;
 
     ///////////// table information
-    string role_tab_info;
 
     char snd[BUFSIZE], rcv[BUFSIZE];
     Role *cls_ptr;
@@ -118,7 +117,6 @@ void Role::game_start_update(string str){
         p = atoi(playerp);
         w.player_info_refresh(2, p, 0, true, n);
         w.player_info_refresh(1, p, 0, true, "");
-        // cout << "N: " << n << " id: " << p << endl;
     }    
 
 
@@ -127,19 +125,19 @@ void Role::save_ptr(Role *p){
 
     cls_ptr = p;
     w.set_statr_ptr(state_check);
-    // cout <<  " " << cls_ptr << endl;
-    // cout << "You are player " << player << endl;
-    // cout << "Your role is " << role_name[Role_id] << endl;
-    // cout << "Your group is : " << group_name[group] << endl;
-    // cout << "Your winning condition is : " << winning_cond[group] << endl;
+
     ss_win.str("");
     ss_win << "You are player " << player << endl;
+    w.set_role_tab_info(0, ss_win);
     ss_win << "Your role is " << role_name[Role_id] << endl;
+    w.set_role_tab_info(1, ss_win);
     ss_win << "Your group is " << group_name[group] << endl;
+    w.set_role_tab_info(2, ss_win);
     ss_win << "Your winning condition is : " << winning_cond[group] << endl;
+    w.set_role_tab_info(3, ss_win);
     ss_win << "Night Function : " << role_func[Role_id - 1] << endl;
-    role_tab_info = ss_win.str();
-    ss_win.str("");
+    w.set_role_tab_info(4, ss_win);
+
     if( pthread_create( &thread_id, NULL ,  connection_handler , (void*) cls_ptr) < 0){
         perror("could not create thread");
         return;
@@ -164,7 +162,6 @@ void Role::save_ptr(Role *p){
     if (!alive){
         state_check = 0;
         chating_ability = true;
-        // cout << "You are dead !!\n";
         ss_win << "You are dead !!\nNow you can chat with other death.";
         w.recv_msg(ss_win);
     }
@@ -186,7 +183,6 @@ Role::Role(int con, int role, int player, int player_amount){
     this->chating_ability = true;
     this->using_skill = false;
     this->game_over = false;
-    this->role_tab_info = "";
 
     w.player_info_refresh(0, player, Role_id, true, "");
 
@@ -227,7 +223,7 @@ int Role::vote_period(){
     w.recv_msg(ss_win);
     ss_win << "not to vote if [player num] = -1\n";
     w.recv_msg(ss_win);
-    while(state_check == 1 && alive && !game_over){  
+    while(state_check == 1 && alive && !game_over){
         // cout << "Please make a decision\n";
         // cout << "Command : --vote [player num]\n";
         // cout << "not to vote if [player num] = -1\n";
@@ -255,7 +251,6 @@ int Role::vote_period(){
 }
 void Role::day_func(){
     string sent;
-    // cout << "============= Day Time =============\n";
     if(alive)
         ss_win << "============= Day Time =============\n";
     else
@@ -272,7 +267,6 @@ void Role::day_func(){
     
 }
 void Role::night_func(){
-    // cout << "Now, night is coming\n";
     ss_win << "Now, night is coming\n";
     w.recv_msg(ss_win);
     string kb_input = "";
@@ -420,31 +414,32 @@ void *connection_handler(void *conn){
         if((n = read(ptr->connfd, rcv, BUFSIZE)) == -1)
             errexit("Error: read()\n");
         ///////////////////// 
-
-        if(strstr(rcv, "MORNING_EFFECT")){
-            if(death == ptr->player){
-                ptr->chating_ability = true;
+        if (ptr->alive){
+            if(strstr(rcv, "MORNING_EFFECT")){
+                if(death == ptr->player){
+                    ptr->chating_ability = true;
+                }
+                else{
+                    ptr->chating_ability = false;
+                }
+                ptr->state_check = 3;
+                continue;
             }
-            else{
-                ptr->chating_ability = false;
+            else if(strstr(rcv, "MORNING_CHAT")){
+                ptr->state_check = 0;
+                continue;         
             }
-            ptr->state_check = 3;
-            continue;
-        }
-        else if(strstr(rcv, "MORNING_CHAT")){
-            ptr->state_check = 0;
-            continue;         
-        }
-        else if(strstr(rcv, "NIGHT")){
-            if(!(ptr->chating_ability)){
-                ptr->chating_ability = true;
+            else if(strstr(rcv, "NIGHT")){
+                if(!(ptr->chating_ability)){
+                    ptr->chating_ability = true;
+                }
+                ptr->state_check = 2;  
+                continue;    
             }
-            ptr->state_check = 2;  
-            continue;    
-        }
-        else if(strstr(rcv, "MORNING_VOTE")){
-            ptr->state_check = 1;
-            continue;
+            else if(strstr(rcv, "MORNING_VOTE")){
+                ptr->state_check = 1;
+                continue;
+            }
         }
 
         if(strstr(rcv, "--true-role")){ 
@@ -457,7 +452,7 @@ void *connection_handler(void *conn){
                 roles += *(pch + 8 + j);
             }
             count = 0;
-            while(*(pch1 + 12 + count) != '\n'){
+            while(*(pch1 + 12 + count) != '\0'){
                 dea += *(pch1 + 12 + count);
                 count ++;
             }
@@ -482,7 +477,7 @@ void *connection_handler(void *conn){
             pch = strstr (rcv,"--death ");
             count = 0;
             dea = "";
-            while(*(pch + 8 + count) != '\n'){
+            while(*(pch + 8 + count) != '\0'){
                 dea += *(pch + 8 + count);
                 count ++;
             }
@@ -530,17 +525,13 @@ void *connection_handler(void *conn){
 
         // cout << rcv << endl;
         ss_win_thread << rcv << endl;
-        if(ss_win_thread.str()[0] == '['){
-            w.recv_msg(ss_win_thread);
-        }
-        else{
-            w.recv_msg(ss_win_thread);
-        }
-        if (strlen(buf_snd_role) != 0){
-            // cout << buf_snd_role;
-            // ss_win << buf_snd_role;
-            // w.recv_msg(ss_win);
-        }
+        w.recv_msg(ss_win_thread);
+        
+        // if (strlen(buf_snd_role) != 0){
+        //     // cout << buf_snd_role;
+        //     // ss_win << buf_snd_role;
+        //     // w.recv_msg(ss_win);
+        // }
 
     }
     pthread_exit((void *)conn);
