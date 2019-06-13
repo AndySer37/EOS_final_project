@@ -241,7 +241,7 @@ int Role::vote_period(){
             w.recv_msg(1, ss_win);
         }
         else{
-            ss_win << "--p " << player << " --vote " << voting;
+            ss << "--p " << player << " --vote " << voting;
             if ((n = write(connfd, ss.str().c_str(), strlen(ss.str().c_str()))) == -1)
                 errexit("Error: write()\n");  
             // cout << "You don't want to vote anyone.\n";
