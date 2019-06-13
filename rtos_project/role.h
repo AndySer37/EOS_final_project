@@ -219,8 +219,8 @@ int Role::vote_period(){
     string kb_input = "";
     ss_win << "Please make a decision\n";
     w.recv_msg(ss_win);
-    ss_win << "Command : --vote [player num]\n";
-    w.recv_msg(ss_win);
+    // ss_win << "Command : --vote [player num]\n";
+    // w.recv_msg(ss_win);
     ss_win << "not to vote if [player num] = -1\n";
     w.recv_msg(ss_win);
     while(state_check == 1 && alive && !game_over){
@@ -281,8 +281,8 @@ void Role::night_func(){
     const char *res;
     ss_win << "Please make a decision\n";
     w.recv_msg(ss_win);
-    ss_win << "Command : --use, --notuse, --obj [player num], [chatting]\n";
-    w.recv_msg(ss_win);
+    // ss_win << "Command : --use, --notuse, --obj [player num], [chatting]\n";
+    // w.recv_msg(ss_win);
     while(state_check == 2 && alive && !game_over){ 
         // cout << "Please make a decision\n";
         // cout << "Command : --use, --notuse, --obj [player num], [chatting]\n";
@@ -312,12 +312,12 @@ void Role::night_func(){
                     w.recv_msg(ss_win);
                     if(player_obj == -1){
                         // cout << "launch.\n";
-                        ss_win << "launch.\n";
+                        ss_win << "launch your skill.\n";
                         w.recv_msg(ss_win);
                     }
                     else if(player_obj == -2){
                         // cout << "not to launch.\n";
-                        ss_win << "not to launch.\n";
+                        ss_win << "not to launch your skill.\n";
                         w.recv_msg(ss_win);
                     }
                     break;

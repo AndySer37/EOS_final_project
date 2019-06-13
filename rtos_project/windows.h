@@ -463,7 +463,7 @@ void Windows::name_setted(){
     is_name_set = true;
     is_game_start = true;
     wclear(chat_i);
-    mvwprintw(chat_i,2,0,"Say :");
+    mvwprintw(chat_i,2,0,"Say something:");
     touchwin(chat_i_box);
     wrefresh(chat_i_box);
     touchwin(chat_i);
