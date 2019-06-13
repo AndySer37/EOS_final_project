@@ -116,7 +116,8 @@ void Role::game_start_update(string str){
         }
         playerp = (pch1 + 8);
         p = atoi(playerp);
-        w.player_info_refresh(1, p, 0, true);
+        w.player_info_refresh(2, p, 0, true, n);
+        w.player_info_refresh(1, p, 0, true, "");
         // cout << "N: " << n << " id: " << p << endl;
     }    
 
@@ -125,6 +126,7 @@ void Role::game_start_update(string str){
 void Role::save_ptr(Role *p){
 
     cls_ptr = p;
+    w.set_statr_ptr(state_check);
     // cout <<  " " << cls_ptr << endl;
     // cout << "You are player " << player << endl;
     // cout << "Your role is " << role_name[Role_id] << endl;
@@ -137,6 +139,7 @@ void Role::save_ptr(Role *p){
     ss_win << "Your winning condition is : " << winning_cond[group] << endl;
     ss_win << "Night Function : " << role_func[Role_id - 1] << endl;
     role_tab_info = ss_win.str();
+    ss_win.str("");
     if( pthread_create( &thread_id, NULL ,  connection_handler , (void*) cls_ptr) < 0){
         perror("could not create thread");
         return;
@@ -163,14 +166,14 @@ void Role::save_ptr(Role *p){
         chating_ability = true;
         // cout << "You are dead !!\n";
         ss_win << "You are dead !!\nNow you can chat with other death.";
-        w.recv_msg(1, ss_win);
+        w.recv_msg(ss_win);
     }
     while(!game_over){
         day_func();
     }
     ss_win.str("");
     ss_win << "Client Close.";
-    w.recv_msg(1, ss_win);
+    w.recv_msg(ss_win);
 }
 Role::Role(int con, int role, int player, int player_amount){
     this->night = 0;
@@ -185,7 +188,7 @@ Role::Role(int con, int role, int player, int player_amount){
     this->game_over = false;
     this->role_tab_info = "";
 
-    w.player_info_refresh(0, player, Role_id, true);
+    w.player_info_refresh(0, player, Role_id, true, "");
 
     switch(Role_id){
         // Town
@@ -219,11 +222,11 @@ Role::Role(int con, int role, int player, int player_amount){
 int Role::vote_period(){
     string kb_input = "";
     ss_win << "Please make a decision\n";
-    w.recv_msg(1, ss_win);
+    w.recv_msg(ss_win);
     ss_win << "Command : --vote [player num]\n";
-    w.recv_msg(1, ss_win);
+    w.recv_msg(ss_win);
     ss_win << "not to vote if [player num] = -1\n";
-    w.recv_msg(1, ss_win);
+    w.recv_msg(ss_win);
     while(state_check == 1 && alive && !game_over){  
         // cout << "Please make a decision\n";
         // cout << "Command : --vote [player num]\n";
@@ -238,7 +241,7 @@ int Role::vote_period(){
                 errexit("Error: write()\n");   
             // cout << "You decide to vote player " << voting << endl;
             ss_win << "You decide to vote player " << voting << endl;
-            w.recv_msg(1, ss_win);
+            w.recv_msg(ss_win);
         }
         else{
             ss << "--p " << player << " --vote " << voting;
@@ -246,7 +249,7 @@ int Role::vote_period(){
                 errexit("Error: write()\n");  
             // cout << "You don't want to vote anyone.\n";
             ss_win << "You don't want to vote anyone.\n";
-            w.recv_msg(1, ss_win);
+            w.recv_msg(ss_win);
         }
     }
 }
@@ -258,7 +261,7 @@ void Role::day_func(){
     else
         ss_win << "============= Death Zone =============\n";
     // sleep(1);
-    w.recv_msg(1, ss_win);
+    w.recv_msg(ss_win);
     // sleep(1);
     while(state_check == 0 && !game_over){
         sent = w.input();
@@ -271,16 +274,16 @@ void Role::day_func(){
 void Role::night_func(){
     // cout << "Now, night is coming\n";
     ss_win << "Now, night is coming\n";
-    w.recv_msg(1, ss_win);
+    w.recv_msg(ss_win);
     string kb_input = "";
     player_obj = -2;
     using_skill = false;
     char *pch;
     const char *res;
     ss_win << "Please make a decision\n";
-    w.recv_msg(1, ss_win);
+    w.recv_msg(ss_win);
     ss_win << "Command : --use, --notuse, --obj [player num], [chatting]\n";
-    w.recv_msg(1, ss_win);
+    w.recv_msg(ss_win);
     while(state_check == 2 && alive && !game_over){ 
         // cout << "Please make a decision\n";
         // cout << "Command : --use, --notuse, --obj [player num], [chatting]\n";
@@ -300,23 +303,23 @@ void Role::night_func(){
                 case 11:
                     // cout << "Your selection is player " << player_obj << endl;
                     ss_win << "Your selection is player " << player_obj << endl;
-                    w.recv_msg(1, ss_win);
+                    w.recv_msg(ss_win);
                     break;
                 // defense
                 case 6:
                 case 10:
                     // cout << "Your decision is ";
                     ss_win << "Your decision is ";
-                    w.recv_msg(1, ss_win);
+                    w.recv_msg(ss_win);
                     if(player_obj == -1){
                         // cout << "launch.\n";
                         ss_win << "launch.\n";
-                        w.recv_msg(1, ss_win);
+                        w.recv_msg(ss_win);
                     }
                     else if(player_obj == -2){
                         // cout << "not to launch.\n";
                         ss_win << "not to launch.\n";
-                        w.recv_msg(1, ss_win);
+                        w.recv_msg(ss_win);
                     }
                     break;
                 default:
@@ -356,13 +359,13 @@ bool Role::check_obj(string str){
             else{
                 // cout << "Error: Can't choose yourself or dead\n";
                 ss_win << "Error: Can't choose yourself or dead\n";
-                w.recv_msg(1, ss_win);
+                w.recv_msg(ss_win);
             }
         }
         else{
             // cout << "Error: Invaild player number\n";
             ss_win << "Error: Invaild player number\n";
-            w.recv_msg(1, ss_win);
+            w.recv_msg(ss_win);
         }
     }
     player_obj = -2;
@@ -385,13 +388,13 @@ int Role::check_voting(string str){
             else{
                 // cout << "Error: Can't choose yourself or dead\n";
                 ss_win << "Error: Can't choose yourself or dead\n";
-                w.recv_msg(1, ss_win);
+                w.recv_msg(ss_win);
             }
         }
         else{
             // cout << "Error: Invaild player number\n";
             ss_win << "Error: Invaild player number\n";
-            w.recv_msg(1, ss_win);
+            w.recv_msg(ss_win);
         }
     }
     return -1;
@@ -461,14 +464,14 @@ void *connection_handler(void *conn){
 
             _role = atoi(roles.c_str());
             death = atoi(dea.c_str());
-            w.player_info_refresh(1, death, 0, false);
+            w.player_info_refresh(1, death, 0, false, "");
             if (death == ptr->player){
                 ptr->alive = false;
             }
             ss_win_thread.str("");
             ss_win_thread << "Player " << death << "is dead, and his/her role is " << role_name[_role + 1] ;
-            w.recv_msg(1, ss_win_thread);
-            w.player_info_refresh(0, death, (_role + 1), true);
+            w.recv_msg(ss_win_thread);
+            w.player_info_refresh(0, death, (_role + 1), true, "");
 
         }    
         else if(strstr(rcv, "--death ")){ 
@@ -484,7 +487,7 @@ void *connection_handler(void *conn){
                 count ++;
             }
             death = atoi(dea.c_str());
-            w.player_info_refresh(1, death, 0, false);
+            w.player_info_refresh(1, death, 0, false, "");
             // cout << death << " " << ptr->player << endl;
             // ss_win << death << " " << ptr->player << endl;
             // w.recv_msg(ss_win);
@@ -496,26 +499,26 @@ void *connection_handler(void *conn){
             }
             ss_win_thread.str("");
             ss_win_thread << "Player " << death << "is dead, and we don't know his/her role.";
-            w.recv_msg(1, ss_win_thread); 
+            w.recv_msg(ss_win_thread); 
 
         }
         if (strstr(rcv, "--gf")){
             ss_win_thread.str("");
             ss_win_thread << "God Father is dead, So you switch to Godfather.\nNow you can kill a player at night.";
-            w.recv_msg(1, ss_win_thread); 
+            w.recv_msg(ss_win_thread); 
             ptr->Role_id = 7;      
         } 
         if (strstr(rcv, "--game-over")){
             ss_win_thread.str("");
             ss_win_thread << "The Game is Over.";
-            w.recv_msg(1, ss_win_thread); 
+            w.recv_msg(ss_win_thread); 
             ptr->game_over = true;  
             break; 
         } 
         if (strstr(rcv, "--quiet")){
             ss_win_thread.str("");
             ss_win_thread << "You are threatened!!\nCan't talk at morning!!";
-            w.recv_msg(1, ss_win_thread); 
+            w.recv_msg(ss_win_thread); 
             ptr->chating_ability = false;
         } 
         if (strstr(rcv, "--")){
@@ -528,10 +531,10 @@ void *connection_handler(void *conn){
         // cout << rcv << endl;
         ss_win_thread << rcv << endl;
         if(ss_win_thread.str()[0] == '['){
-            w.recv_msg(0, ss_win_thread);
+            w.recv_msg(ss_win_thread);
         }
         else{
-            w.recv_msg(1, ss_win_thread);
+            w.recv_msg(ss_win_thread);
         }
         if (strlen(buf_snd_role) != 0){
             // cout << buf_snd_role;

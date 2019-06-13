@@ -77,14 +77,15 @@ public:
     Windows();
     ~Windows();
     void initial();
-    void player_info_refresh(int ,int, int, bool );
+    void player_info_refresh(int ,int, int, bool, string );
     void output_refresh(int ,string );
     void playerlist_refresh();
     void lobby_refresh(int , string );
-    void setname(string );
-    void msg_filter(int , string );
-    void recv_msg(int , stringstream & );
+    void name_setted();
+    void msg_filter(string );
+    void recv_msg(stringstream & );
     bool is_player_alive(int i){ return p[i].is_alive; }
+    void set_statr_ptr(int &ptr){ state = &ptr; }
     string input();
     string char_intput(int );
 
@@ -94,11 +95,13 @@ private:
     WINDOW *chat_o_box, *chat_i_box, *sysmsg_box;
     
     bool is_plist_show = false;
-    bool is_gmae_start = false;
+    bool is_game_start = false;
     bool is_name_set = false;
 
     string msg;
-    Player_info p[11], *p_self;
+    Player_info p[11];
+    int *state;
+    int self_id;
 };
 
 Windows::Windows(){
@@ -178,17 +181,22 @@ void Windows::initial(){
     wclear(stdscr);
     refresh();
 }
-void Windows::player_info_refresh(int flag, int i, int role, bool alive){
+void Windows::player_info_refresh(int flag, int i, int role, bool alive, string n){
     if(flag == 0){
         p[i].role_id = role;
     }
     else if(flag == 1){
         p[i].is_alive = alive;
     }
+    else if(flag ==2){
+        p[i].id = i;
+        p[i].name = n;
+        p[i].is_playing = true;
+    }
 }
 
 void Windows::playerlist_refresh(){
-    if(is_plist_show && is_gmae_start){
+    if(is_plist_show && is_game_start){
         wattron(plist,COLOR_PAIR(7)|A_BOLD);
         mvwprintw(plist,2,4,"|  I D  |   role   |");
         for(int i=0,j=0;j<11;j++){
@@ -199,7 +207,7 @@ void Windows::playerlist_refresh(){
                 else{
                     wattron(plist,COLOR_PAIR(6));
                 }
-                mvwprintw(plist,3+i, 2," %d ",i+1);
+                mvwprintw(plist,3+i, 2," %d ",p[j].id);
                 mvwprintw(plist,3+i, 5," %-8s ", p[j].name.c_str());
                 mvwprintw(plist,3+i,18,role_name[p[j].role_id].c_str());
                 i++;
@@ -216,7 +224,7 @@ void Windows::playerlist_refresh(){
         wrefresh(sysmsg);
         touchwin(chat_o_box);
         wrefresh(chat_o_box);
-        if(is_gmae_start){
+        if(is_game_start){
             touchwin(chat_o);
             wrefresh(chat_o);
         }
@@ -228,10 +236,7 @@ void Windows::playerlist_refresh(){
 }
 
 void Windows::lobby_refresh(int i, string n){
-    p[i].id = i;
-    p[i].name = n;
-    p[i].is_playing = true;
-    if(!is_gmae_start){
+    if(!is_game_start){
         wattron(plist,COLOR_PAIR(7)|A_BOLD);
         mvwprintw(plist,1,0,"|  I D  |             name             |");
         // for(int i=0,j=0;j<11;j++){
@@ -253,7 +258,6 @@ void Windows::output_refresh(int w, string str){
             wrefresh(chat_o_box);
             touchwin(chat_o);
             getyx(chat_o, y, x);
-            // str +="\n";
             mvwprintw(chat_o, y, 0, str.c_str());
             wrefresh(chat_o);
             touchwin(chat_i_box);
@@ -267,15 +271,24 @@ void Windows::output_refresh(int w, string str){
             wrefresh(sysmsg_box);
             touchwin(sysmsg);
             getyx(sysmsg, y, x);
-            if(str.substr(0,8) == "(SYSTEM)"){
+            string tag( str.substr(0,str.find_first_of(')', 0)+1) );
+            if(tag == "(3)"){
                 wattron(sysmsg,COLOR_PAIR(3)|A_BOLD);
+                str.erase (0,tag.size());
+            }
+            else if(tag == "(2)"){
+                wattron(sysmsg,COLOR_PAIR(2));
+                str.erase (0,tag.size());
+            }
+            else if(tag == "(1)"){
+                wattron(sysmsg,COLOR_PAIR(3));
+                str.erase (0,tag.size());
             }
             else{
                 wattron(sysmsg,COLOR_PAIR(7));
             }
-            // str +="\n";
             mvwprintw(sysmsg, y, 0, str.c_str());
-            if(str.substr(0,8) == "(SYSTEM)"){
+            if(tag == "(3)"){
                 wattroff(sysmsg,COLOR_PAIR(3)|A_BOLD);
             }
             wrefresh(sysmsg);
@@ -290,9 +303,17 @@ void Windows::output_refresh(int w, string str){
 
 
 string Windows::input(){
-    int x;
+    int x, last_state;
     msg.clear();
+    if(state != NULL){
+        last_state = *state;
+    }
     while(1){
+        if((state != NULL)&&(last_state != *state)){
+            msg.clear();
+            char_intput('\r');
+            return "";
+        }
         if (kbhit()) {
             x=getch();
             if(x == 27){
@@ -314,6 +335,7 @@ string Windows::input(){
     }
 }
 
+
 string Windows::char_intput(int c){
     int x, y;
     touchwin(chat_i);
@@ -331,8 +353,7 @@ string Windows::char_intput(int c){
             mvwprintw(chat_i,2,0,"Say :");
         }
         else{
-            setname(msg);
-            is_name_set = true;
+            mvwprintw(chat_i,2,0,"Enter your name :");
         }
     }
     else{
@@ -346,27 +367,30 @@ string Windows::char_intput(int c){
     return msg;
 }
 
-void Windows::setname(string msgs){
-    is_gmae_start = true;
+void Windows::name_setted(){
+    is_name_set = true;
+    is_game_start = true;
 }
-void Windows::msg_filter(int w, string str){
-    string first_flag( str.substr(0,str.find_first_of(')',0)) );
-    string msg; 
-    if(first_flag == "(s)"){
-        msg = str.substr(first_flag.size(), -1);
+void Windows::msg_filter(string str){
+    int w;
+    string tag( str.substr(0,str.find_first_of(')', 0)+1) );
+    if(tag == string("(s)")){
+        str.erase (0,tag.size());
+        w = 1;
     }
-    else if(first_flag == "(p)"){
-        msg = str.substr(first_flag.size(), -1);
+    else if(tag == string("(p)")){
+        str.erase (0,tag.size());
+        w = 0;
     }
     else{
-        msg = str;
+        w = 1;
     }
     output_refresh(w, str);
 }
 
-void Windows::recv_msg(int w, stringstream &ss){
+void Windows::recv_msg(stringstream &ss){
     pthread_mutex_lock( &mutex ); // 上鎖 
-    msg_filter(w, ss.str());
+    msg_filter(ss.str());
     ss.str("");
     pthread_mutex_unlock( &mutex ); // 解鎖
 }

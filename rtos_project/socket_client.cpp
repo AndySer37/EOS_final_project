@@ -49,29 +49,28 @@ void *recv_handler(void *arg){
         }else if(strstr(buf_rcv, "SHUTDOWN")){      // if shutdown
             // printf("%s\n", buf_rcv);
             ss_win<<buf_rcv<<endl;
-            w.recv_msg(1, ss_win);
+            w.recv_msg(ss_win);
             close(sockfd);
             flag_shutdown = true;
             pthread_exit(0);
         }else if(strstr(buf_rcv, "Players infomation")){      // if shutdown
             // printf("%s\n", buf_rcv);
             // ss_win<<buf_rcv<<endl;
-            // w.recv_msg(1, ss_win);
+            // w.recv_msg(ss_win);
             game_info = string(buf_rcv);
             flag_shutdown = true;
         }else if(strstr(buf_rcv, "--")){            // if receive '--' command
             int r, p, amo;
             sscanf(buf_rcv, "--role %d --p %d --amo %d", &r, &p, &amo);
             role = new Role(sockfd, r, p, amo);
-            role->game_start_update(game_info);
             game_start = true;
             pthread_exit(0);
         }else{
             // printf("%s\r\n%s", buf_rcv, buf_snd); // Bug: cannot record previous words after receving msg from server 
             ss_win<<buf_rcv<<endl;
-            w.recv_msg(1, ss_win);
+            w.recv_msg(ss_win);
             // ss_win<<buf_snd<<endl;
-            // w.recv_msg(1, ss_win);
+            // w.recv_msg(ss_win);
         }
     }
 }
@@ -107,10 +106,24 @@ int main(int argc,char **argv){
     string username;
     // printf("Username: ");
     // ss_win<<"Username: "<<endl;
-    // w.recv_msg(1, ss_win);
+    // w.recv_msg(ss_win);
     // sprintf(username, "%c%c", rand()%20+'A', rand()%20+'A');
     // scanf("%s", username);
-    username = w.input();
+    while(1){
+        username = w.input();
+        if(username.size()<=0){
+            ss_win<<"Your name is too short"<<endl;
+            w.recv_msg(ss_win);
+        }
+        else if(username.size()>25){
+            ss_win<<"Your name is too long"<<endl;
+            w.recv_msg(ss_win);
+        }
+        else{
+            w.name_setted();
+            break;
+        }
+    }
     ret = send(sockfd, username.c_str(), username.size(), 0);
     if(0 > ret){
         perror("connect");
@@ -127,8 +140,9 @@ int main(int argc,char **argv){
 
     // Continue typing
     while(!flag_shutdown && !game_start){
-        usleep(50000);
+        usleep(500000);
     }
+    role->game_start_update(game_info);
     role->save_ptr(role);
     return 0;
 }

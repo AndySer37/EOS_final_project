@@ -39,7 +39,7 @@ int main(int argc, char** argv) {
     stringstream ss;
     while(1){
         ss<<w.input()<<endl;
-        w.recv_msg(0, ss);
+        w.recv_msg(ss);
     }
     
     // endwin();
