@@ -235,6 +235,7 @@ bool game_server::night_update(string *str_arr){
             case 7:
             case 8:
                 respond[role_table[0][0]] = "His/Her identity is Mafia\n";
+                break;
             // neutrality
             case 10:
                 respond[role_table[0][0]] = "His/Her identity is Serial killer\n";

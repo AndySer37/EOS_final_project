@@ -366,7 +366,7 @@ string Windows::input(){
                 }
                 else if(last_state == 2){
                     string str(char_intput(x));
-                    if((str[0]>='0' && str[0]<='9' &&str.size() ==1)||str == "11"){
+                    if((str[0]>='0' && str[0]<='9' &&str.size() ==1)||str == "11"||str == "y"||str == "n"){
                         return (string("--obj ") + str);
                     }
                     else{
