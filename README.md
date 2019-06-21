@@ -13,8 +13,8 @@ Server (or Client)$ make
 
 Server:
 ```
-PXA270$ cd EOS_final_project/rtos_project/game_server/ 
-PXA270$ ./socket_server [IP] [PORT]
+PXA270$ cd EOS_final_project/rtos_project/
+PXA270$ ./game_server/socket_server [IP] [PORT]
 ```
 
 Client:
@@ -22,3 +22,10 @@ Client:
 Laptop$ cd EOS_final_project/rtos_project/
 Laptop$ ./socket_client [IP] [PORT]
 ```
+
+## Screenshot
+Server: <br>
+![image](figures/server_screenshot01.png)
+
+Client: <br>
+![image](figures/client_screenshot01.png)

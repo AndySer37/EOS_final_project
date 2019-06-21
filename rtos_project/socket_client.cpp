@@ -77,10 +77,13 @@ void *recv_handler(void *arg){
 
 int main(int argc,char **argv){
     srand(time(NULL));
+
     if(argc != 3){
-        perror("./socket_client [PORT] [SERVER_IP]");
+        perror("./socket_client [SERVER_IP] [PORT]");
         return -1;
     }
+    string ip = argv[1];
+    string port = argv[2];
 
     // Allocate socket
     sockfd = socket(AF_INET,SOCK_STREAM,0);
@@ -91,8 +94,8 @@ int main(int argc,char **argv){
 
     // Input port and ip from args
     struct sockaddr_in addr = {AF_INET};
-    addr.sin_port = htons(atoi(argv[1]));
-    addr.sin_addr.s_addr = inet_addr(argv[2]);
+    addr.sin_port = htons(atoi(port.c_str()));
+    addr.sin_addr.s_addr = inet_addr(ip.c_str());
     socklen_t addr_len = sizeof(addr);
 
     // Connect 
