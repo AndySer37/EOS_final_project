@@ -1,6 +1,6 @@
 # Ignore all
 *
-
+EOS_demo01.mp4
 # Unignore all with extensions
 !*.*
 
@@ -8,3 +8,4 @@
 !*/
 
 bin/
+video/
