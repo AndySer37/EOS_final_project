@@ -17,11 +17,12 @@
 
 using namespace std;
 #define MAX_SOCKET_CONNECTION 80
-#define SOCKET_PORT "8787"
-#define SOCKET_IP "127.0.0.1"
+#define DEFAULT_PORT "8787"
+#define DEFAULT_IP "127.0.0.1"
 #define GAME_COUNTDOWN_SECOND 5
 
-string port; ;
+string port;
+string ip;
 
 typedef struct sockaddr *sockaddrp;
 typedef enum{
@@ -85,8 +86,9 @@ int socket_init(int *sockfd){
     // Input port and ip from args 
     struct sockaddr_in addr = {AF_INET};
     addr.sin_port = htons(atoi(port.c_str()));
-    // addr.sin_port = htons(atoi(SOCKET_PORT));    // Convert host btye order to network byte order
-    addr.sin_addr.s_addr = inet_addr(SOCKET_IP);
+    addr.sin_addr.s_addr = inet_addr(ip.c_str());
+    // addr.sin_port = htons(atoi(DEFAULT_PORT));    // Convert host btye order to network byte order
+    // addr.sin_addr.s_addr = inet_addr(DEFAULT_IP);
     socklen_t addr_len = sizeof(addr);
 
     //socket bind
@@ -394,12 +396,31 @@ void wait_timer_countdown(unsigned int sec){
 
 int main(int argc, char *argv[]){
 
-    if(argc == 2){
-        port = argv[1];
-    }
-    else {
+    if(argc == 3){
+        if(strstr(argv[1], ".") && strlen(argv[1]) > 4){
+            ip = argv[1];
+            port = argv[2];
+        }
+        else{
+            port = argv[1];
+            ip = argv[2];
+        }
+    }else if(argc == 2){
+        if(strstr(argv[1], ".") && strlen(argv[1]) > 4){
+            ip = argv[1];
+            port = "8787";
+        }
+        else{
+            ip = "127.0.0.1";
+            port = argv[1];
+        }
+    }else {
+        ip = "127.0.0.1";
         port = "8787";
     }
+    cout << "The server IP has been set to: \033[0;33m" << ip << "\033[0m\n";
+    cout << "The server PORT has been set to: \033[0;33m" << port << "\033[0m" << endl;
+
 
     pthread_t tid;
     srand(time(NULL));
@@ -423,7 +444,7 @@ int main(int argc, char *argv[]){
     game_state = GAME_LOGIN;
     socket_broadcast("SYSTEM", GAME_STATE_MSG[game_state]);
     while(num_players < 3){
-        wait_timer_countdown(10);
+        wait_timer_countdown(20);
         if(num_players >= 3) break;
         socket_broadcast("SYSTEM", "Not enough players, continue waiting...");
     }
